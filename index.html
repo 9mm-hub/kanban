@@ -97,12 +97,12 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .sname{font-size:10px;color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 /* PRAZO */
-.sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
 .sprazo.sn{border-color:rgba(0,133,255,.5);color:#3d9bff;background:rgba(0,133,255,.08)}
-.sprazo input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.sprazo input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;pointer-events:all}
 
 /* STATUS */
 .sst{position:relative;flex-shrink:0}
@@ -230,17 +230,22 @@ let _tt;
 function toast(msg,err){const t=document.getElementById('toast');t.textContent=msg;t.className=err?'show err':'show';clearTimeout(_tt);_tt=setTimeout(()=>t.className='',2500);}
 const ghost=document.getElementById('ghost');
 function setupDrag(cardEl,item,person){
-  cardEl.draggable=true;
-  cardEl.addEventListener('dragstart',e=>{
+  // drag via card-top como handle
+  const handle=cardEl; // card inteiro é arrastável
+  handle.draggable=true;
+  handle.style.cursor='grab';
+  handle.addEventListener('dragstart',e=>{
+    // Bloquear dragstart se vier de input, button, a, ou .sprazo
+    if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='A'||e.target.closest('.sprazo')||e.target.closest('.stdd')||e.target.closest('.cbtn')){e.preventDefault();return;}
     dragItem={item,person};
     setTimeout(()=>cardEl.classList.add('dragging'),0);
     ghost.textContent=item.name||'';
-    ghost.style.left='-9999px';
-    ghost.style.display='block';
-    try{e.dataTransfer.setDragImage(ghost,0,0);}catch(err){}
+    ghost.style.cssText='position:fixed;left:-9999px;top:-9999px;display:block;z-index:9999;';
+    try{e.dataTransfer.setDragImage(ghost,60,20);}catch(err){}
     e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain',item.id);
   });
-  cardEl.addEventListener('dragend',()=>{
+  handle.addEventListener('dragend',()=>{
     cardEl.classList.remove('dragging');
     ghost.style.display='none';
     dragItem=null;
@@ -314,7 +319,33 @@ function render(){
     const colsWrap=document.createElement('div');colsWrap.className='pkanban-cols';
 
     STATUS_COLS.forEach(st=>{
-      const pItems=sortItems(allItems.filter(it=>it.ks===st&&it.subs.some(s=>s.resp===person)),person);
+      // Concluídos Hoje: subitem DESTA PESSOA com status concluído, independente do grupo pai
+      // As outras colunas excluem items onde o subitem desta pessoa está concluído
+      let pItems;
+      if(st==='Concluídos Hoje'){
+        pItems=sortItems(allItems.filter(it=>{
+          const mySubs=it.subs.filter(s=>s.resp===person);
+          return mySubs.length&&mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
+        }),person);
+      } else if(st==='Concluídos Ontem'||st==='Concluído'){
+        // Manter comportamento original pelo grupo pai, mas excluir se já aparece em Concluídos Hoje
+        pItems=sortItems(allItems.filter(it=>{
+          const mySubs=it.subs.filter(s=>s.resp===person);
+          if(!mySubs.length)return false;
+          const subConcluido=mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
+          if(subConcluido)return false; // já aparece em Concluídos Hoje
+          return it.ks===st;
+        }),person);
+      } else {
+        // Em Pauta, Em Andamento, Pausado: grupo pai bate E subitem não está concluído
+        pItems=sortItems(allItems.filter(it=>{
+          const mySubs=it.subs.filter(s=>s.resp===person);
+          if(!mySubs.length)return false;
+          const subConcluido=mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
+          if(subConcluido)return false; // vai aparecer em Concluídos Hoje
+          return it.ks===st;
+        }),person);
+      }
       const col=document.createElement('div');col.className='col';col.dataset.s=st;
       col.innerHTML=`<div class="col-hdr"><div class="col-dot"></div><div class="col-title">${st}</div><div class="col-count">${pItems.length}</div></div>`;
       const body=document.createElement('div');body.className='col-body';
