@@ -184,7 +184,33 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 function initKanban(monday){
 const STATUS_COLS=['Em Pauta','Em Andamento','Pausado','Concluídos Hoje','Concluídos Ontem','Concluído'];
-const STATUS_META={'Em Pauta':{cls:'ep',dot:'#0085ff'},'Em Andamento':{cls:'ea',dot:'#ffb900'},'Pausado':{cls:'pa',dot:'#5c5c6b'},'Concluídos Hoje':{cls:'co',dot:'#00ca72'},'Concluídos Ontem':{cls:'co2',dot:'#00a85a'},'Concluído':{cls:'co3',dot:'#007a40'}};
+const READONLY_COLS=new Set(['Concluídos Ontem','Concluído']); // sem drag para cá
+
+// Mapeia status do subitem → coluna kanban
+// Para "Concluído", usa o grupo pai (ks) para desambiguar
+function subColuna(subStatus, itemKs){
+  const s=(subStatus||'').toLowerCase().trim();
+  if(s==='em pauta')return 'Em Pauta';
+  if(s==='em andamento')return 'Em Andamento';
+  if(s==='pausado')return 'Pausado';
+  if(s.includes('conclu')){
+    // usa grupo pai para saber se é hoje, ontem ou concluído geral
+    if(itemKs==='Concluídos Hoje')return 'Concluídos Hoje';
+    if(itemKs==='Concluídos Ontem')return 'Concluídos Ontem';
+    return 'Concluído';
+  }
+  // fallback: usa grupo pai
+  return itemKs||'Em Pauta';
+}
+
+// Mapeia coluna kanban → label de status do subitem
+const COL_TO_STATUS={
+  'Em Pauta':'Em pauta',
+  'Em Andamento':'Em andamento',
+  'Pausado':'Pausado',
+  'Concluídos Hoje':'Concluído',
+};
+const STATUS_META={'Em pauta':{cls:'ep',dot:'#0085ff'},'Em andamento':{cls:'ea',dot:'#ffb900'},'Pausado':{cls:'pa',dot:'#5c5c6b'},'Concluído':{cls:'co',dot:'#00ca72'}};
 const MON=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 let allItems=[],allPeople=[],userNameById={},userPhotoById={};
 let selPersons=[],sortOrder='asc',dragItem=null,autoSaveEnabled=false;
@@ -225,17 +251,17 @@ function parseRange(str){if(!str)return null;const m=str.match(/(\d{4}-\d{2}-\d{
 function fmtDate(d){return d?d.toISOString().split('T')[0]:'';}
 function prazoLabel(ds){if(!ds)return'—';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(12,0,0,0);const diff=Math.round((d-today)/86400000);const day=d.getDate().toString().padStart(2,'0'),mon=MON[d.getMonth()];if(diff<0)return`${day} ${mon} ⚠`;if(diff===0)return'Hoje';if(diff===1)return'Amanhã';return`${day} ${mon}`;}
 function prazoClass(ds){if(!ds)return'';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(12,0,0,0);const diff=Math.round((d-today)/86400000);return diff<0?'od':diff===0?'td':diff<=2?'sn':'';}
-function stCls(st){if(!st)return'ep';const s=st.toLowerCase();if(s.includes('andamento'))return'ea';if(s.includes('pausado')||s.includes('pausada'))return'pa';if(s.includes('conclu'))return'co';return'ep';}
+function stCls(s){const m={'Em pauta':'ep','em pauta':'ep','Em andamento':'ea','em andamento':'ea','Pausado':'pa','pausado':'pa','Concluído':'co','concluído':'co','Concluido':'co','concluido':'co'};return m[(s||'').trim()]||'ep';}
 const avColors=['#5c7cfa','#f06595','#ffa94d','#51cf66','#cc5de8','#22b8cf','#ff6b6b','#74c0fc'];
 const avMap={};let avI=0;
 function avColor(n){if(!avMap[n])avMap[n]=avColors[avI++%avColors.length];return avMap[n];}
 function initials(n){return(n||'?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();}
 function makeAv(name,size){const av=document.createElement('div');av.className='pav';av.style.width=size+'px';av.style.height=size+'px';av.style.fontSize=(size<20?7:size<28?9:11)+'px';const ph=userPhotoById[name];if(ph){av.innerHTML=`<img src="${ph}" alt="${initials(name)}"/>`;}else{av.style.background=avColor(name);av.textContent=initials(name);}return av;}
 async function mutPrazo(sub,newDate){if(!sub.boardId||!sub.cronColId){toast('Cronograma não encontrado',true);return;}try{const val=JSON.stringify({from:newDate,to:newDate});await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val)}){id}}`);sub.cron=newDate;sub._range=parseRange(newDate);toast('Prazo atualizado!');render();}catch(e){toast('Erro ao atualizar prazo',true);}}
-async function mutSubStatus(sub,newSt){if(!sub.boardId||!sub.statusColId){toast('Status não encontrado',true);return;}try{const val=JSON.stringify({label:newSt});await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.statusColId}",value:${JSON.stringify(val)}){id}}`);sub.status=newSt;toast('Status atualizado!');render();}catch(e){toast('Erro ao atualizar status',true);}}
+async function mutSubStatus(sub,newSt){if(!sub.boardId||!sub.statusColId){toast('Status não encontrado — subId:'+sub.subId+' boardId:'+sub.boardId+' colId:'+sub.statusColId,true);console.error('mutSubStatus fail',sub);return;}try{const val=JSON.stringify({label:newSt});const r=await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.statusColId}",value:${JSON.stringify(val)}){id}}`);console.log('mutSubStatus ok',r);sub.status=newSt;toast('Status atualizado!');render();}catch(e){console.error('mutSubStatus error',e);toast('Erro: '+e.message,true);}}
 async function mutItemStatus(item,newSt,person){
   // mapear coluna kanban -> label do status do subitem
-  const stMap={'Em Pauta':'Em pauta','Em Andamento':'Em andamento','Pausado':'Pausado','Concluídos Hoje':'Concluído','Concluídos Ontem':'Concluído','Concluído':'Concluído'};
+  const stMap=COL_TO_STATUS;
   const newLabel=stMap[newSt]||newSt;
   // pegar subitems da pessoa
   const subs=person?item.subs.filter(s=>s.resp===person):item.subs;
@@ -290,6 +316,8 @@ function setupDrag(cardEl,item,person){
 }
 
 function setupDrop(zone,targetSt,person){
+  if(READONLY_COLS.has(targetSt))return; // sem drag para Ontem/Concluído
+
   zone.addEventListener('dragover',e=>{
     if(!dragItem)return;
     e.preventDefault();
@@ -306,8 +334,14 @@ function setupDrop(zone,targetSt,person){
     if(!dragItem)return;
     const {item,person:dp}=dragItem;
     dragItem=null;
-    if(item.ks===targetSt)return;
-    await mutItemStatus(item,targetSt,dp);
+    const newStatusLabel=COL_TO_STATUS[targetSt];
+    if(!newStatusLabel)return;
+    // Acha o subitem desta pessoa e muda o status
+    const mySub=item.subs.find(s=>s.resp===dp);
+    if(!mySub){toast('Subitem não encontrado',true);return;}
+    await mutSubStatus(mySub,newStatusLabel);
+    // Atualiza it.ks se necessário (para desambiguar Concluído)
+    if(newStatusLabel==='Concluído')item.ks='Concluídos Hoje';
     render();
   });
 }
@@ -357,7 +391,11 @@ function render(){
     STATUS_COLS.forEach(st=>{
       // Concluídos Hoje: subitem DESTA PESSOA com status concluído, independente do grupo pai
       // As outras colunas excluem items onde o subitem desta pessoa está concluído
-      const pItems=sortItems(allItems.filter(it=>it.ks===st&&it.subs.some(s=>s.resp===person)),person);
+      const pItems=sortItems(allItems.filter(it=>{
+        const mySub=it.subs.find(s=>s.resp===person);
+        if(!mySub)return false;
+        return subColuna(mySub.status,it.ks)===st;
+      }),person);
       const col=document.createElement('div');col.className='col';col.dataset.s=st;
       col.innerHTML=`<div class="col-hdr"><div class="col-dot"></div><div class="col-title">${st}</div><div class="col-count">${pItems.length}</div></div>`;
       const body=document.createElement('div');body.className='col-body';
