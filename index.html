@@ -128,35 +128,44 @@ body {
 #btn-refresh.spinning { animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── BOARD ── */
+/* ── BOARD — layout tabela ── */
 #board-wrap {
   flex: 1;
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 12px 16px;
-  gap: 12px;
-  align-items: flex-start;
+  overflow: auto;
+  padding: 0 0 16px 0;
 }
-#board-wrap::-webkit-scrollbar { height: 4px; }
-#board-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+#board-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+#board-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-/* ── COLUNA ── */
-.col {
-  width: 460px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 100%;
+/* tabela */
+#board-table {
+  display: grid;
+  /* col pessoa + 3 status */
+  grid-template-columns: 140px repeat(3, 1fr);
+  min-width: 900px;
 }
 
-.col-header {
+/* header da tabela */
+.tbl-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.tbl-head-person {
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tbl-head-status {
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 0 2px 2px;
-  flex-shrink: 0;
+  border-left: 1px solid var(--border);
 }
 
 .col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
@@ -167,45 +176,55 @@ body {
   border-radius: 10px; padding: 1px 6px; font-weight: 600;
 }
 
-.col[data-status="Em Pauta"] .col-dot { background: var(--st-pauta-dot); }
-.col[data-status="Em Pauta"] .col-title { color: var(--st-pauta-text); }
-.col[data-status="Em Andamento"] .col-dot { background: var(--st-andamento-dot); }
-.col[data-status="Em Andamento"] .col-title { color: var(--st-andamento-text); }
-.col[data-status="Concluído"] .col-dot { background: var(--st-concluido-dot); }
-.col[data-status="Concluído"] .col-title { color: var(--st-concluido-text); }
+.tbl-head-status[data-status="Em Pauta"] .col-dot { background: var(--st-pauta-dot); }
+.tbl-head-status[data-status="Em Pauta"] .col-title { color: var(--st-pauta-text); }
+.tbl-head-status[data-status="Em Andamento"] .col-dot { background: var(--st-andamento-dot); }
+.tbl-head-status[data-status="Em Andamento"] .col-title { color: var(--st-andamento-text); }
+.tbl-head-status[data-status="Concluído"] .col-dot { background: var(--st-concluido-dot); }
+.tbl-head-status[data-status="Concluído"] .col-title { color: var(--st-concluido-text); }
 
-.col-body {
-  overflow-y: auto;
-  padding-bottom: 8px;
-  flex: 1;
-  min-height: 60px;
+/* linha por pessoa */
+.tbl-row {
+  display: contents;
 }
-.col-body::-webkit-scrollbar { width: 3px; }
-.col-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* seção por pessoa */
-.person-section { margin-bottom: 12px; }
-
-.person-label {
+.tbl-person-cell {
+  padding: 12px 10px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 7px;
-  padding: 0 2px;
+  gap: 5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  left: 0;
+  z-index: 5;
 }
 
 .person-av {
-  width: 20px; height: 20px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 8px; font-weight: 700; color: #fff;
+  font-size: 11px; font-weight: 700; color: #fff;
   flex-shrink: 0; overflow: hidden;
 }
 .person-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.person-name-lbl { font-size: 11px; font-weight: 600; color: var(--text-dim); }
-.person-count-lbl { font-size: 10px; color: var(--text-muted); }
+.person-name-lbl { font-size: 10px; font-weight: 600; color: var(--text-dim); text-align: center; word-break: break-word; }
+.person-count-lbl { font-size: 9px; color: var(--text-muted); }
 
-/* grid 2 colunas */
+.tbl-status-cell {
+  padding: 10px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 80px;
+}
+
+.tbl-status-cell.drag-active {
+  background: rgba(108,95,213,.07);
+  outline: 1px dashed rgba(108,95,213,.4);
+}
+
+/* grid 2 colunas dentro de cada célula */
 .cards-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -276,6 +295,8 @@ body {
   min-width: 0;
 }
 .card-briefing.empty { color: var(--text-muted); font-style: italic; border-left-color: var(--border); }
+a.card-briefing { color: var(--text-dim); text-decoration: none; display: block; cursor: pointer; }
+a.card-briefing:hover { color: var(--accent); border-left-color: var(--accent); }
 
 /* subitem row */
 .sub-row {
@@ -432,7 +453,9 @@ body {
 </div>
 
 <div id="loading"><div class="spinner"></div><span>Carregando...</span></div>
-<div id="board-wrap" style="display:none"></div>
+<div id="board-wrap" style="display:none">
+  <div id="board-table"></div>
+</div>
 <div id="toast"></div>
 <div id="drag-ghost"></div>
 
@@ -447,7 +470,8 @@ body {
 function initApp(monday) {
 
   /* ══ CONFIG ══ */
-  const PEOPLE = ['Maiko da Silva','Isabele Coelho','Gabriela Paganini','Letícia Santos'];
+  const PEOPLE = ['Maiko da Silva','Isabele Coelho','Gabriela Paganini','Leticia Santos'];
+  const MAIKO_NAME = 'Maiko da Silva';
   const STATUS_COLS = ['Em Pauta','Em Andamento','Concluído'];
   const STATUS_META = {
     'Em Pauta':     { cls:'em-pauta',     dot:'#0085ff' },
@@ -459,12 +483,14 @@ function initApp(monday) {
   /* ══ ESTADO ══ */
   let allItems      = [];
   let userPhotoById = {};
-  let selectedPerson= 'all';
+  let currentUserName = '';
+  let isMaiko       = false;
   let sortOrder     = 'asc';
   let colSchema     = null;
   let statusColId   = null;
   let currentBoardId= null;
   let dragItemData  = null;
+  let visiblePeople = PEOPLE; // pessoas visíveis dependendo do usuário
 
   /* ══ API ══ */
   async function api(q) {
@@ -544,9 +570,10 @@ function initApp(monday) {
         const cron     = cols['Cronograma']||'';
         const status   = cols['Status']||'';
         const briefing = cols['Briefing']||cols['briefing']||'';
+        const tipoJob  = cols['Tipo de Job']||cols['Tipo']||'';
         return {
           subId:sub.id, boardId:sub.board?.id, name:sub.name,
-          resp, cron, status, briefing,
+          resp, cron, status, briefing, tipoJob,
           cronColId:colIds['Cronograma']||null,
           statusColId:colIds['Status']||null,
           _range:parseRange(cron),
@@ -668,10 +695,10 @@ function initApp(monday) {
     }
   });
 
-  function setupDrop(zone, targetStatus){
+  function setupDrop(zone, targetStatus, person){
     zone.addEventListener('dragover',e=>{
       if(!dragItemData)return; e.preventDefault();
-      document.querySelectorAll('.col-drop-zone').forEach(z=>z.classList.remove('drag-active'));
+      document.querySelectorAll('.tbl-status-cell').forEach(z=>z.classList.remove('drag-active'));
       zone.classList.add('drag-active');
     });
     zone.addEventListener('dragleave',()=>zone.classList.remove('drag-active'));
@@ -685,65 +712,75 @@ function initApp(monday) {
 
   /* ══ RENDER ══ */
   function render(){
-    const wrap=document.getElementById('board-wrap');
-    wrap.innerHTML='';
+    const tbl = document.getElementById('board-table');
+    tbl.innerHTML = '';
 
-    STATUS_COLS.forEach(status=>{
-      let items=allItems.filter(it=>it.kanbanStatus===status);
-      if(selectedPerson!=='all')
-        items=items.filter(it=>it.subitems.some(s=>s.resp===selectedPerson));
+    // conta totais por status para o header
+    const totals = {};
+    STATUS_COLS.forEach(s => totals[s] = 0);
+    allItems.forEach(it => { if(totals[it.kanbanStatus]!==undefined) totals[it.kanbanStatus]++; });
 
-      const col=document.createElement('div');
-      col.className='col'; col.dataset.status=status;
+    // ── HEADER ──
+    // célula vazia canto
+    const corner = document.createElement('div');
+    corner.className = 'tbl-head';
+    corner.innerHTML = '<div class="tbl-head-person"></div>';
+    tbl.appendChild(corner);
 
-      const hdr=document.createElement('div');
-      hdr.className='col-header';
-      hdr.innerHTML=`<div class="col-dot"></div><div class="col-title">${status}</div><div class="col-count">${items.length}</div>`;
-      col.appendChild(hdr);
+    STATUS_COLS.forEach(status => {
+      const h = document.createElement('div');
+      h.className = 'tbl-head tbl-head-status';
+      h.dataset.status = status;
+      h.innerHTML = `<div class="col-dot"></div><div class="col-title">${status}</div><div class="col-count">${totals[status]||0}</div>`;
+      tbl.appendChild(h);
+    });
 
-      const drop=document.createElement('div');
-      drop.className='col-drop-zone col-body';
-      setupDrop(drop,status);
+    // ── LINHAS POR PESSOA ──
+    visiblePeople.forEach(person => {
+      // célula de pessoa
+      const pc = document.createElement('div');
+      pc.className = 'tbl-person-cell';
+      const av = makeAv(person, 32, 'person-av');
+      const nm = document.createElement('div'); nm.className = 'person-name-lbl'; nm.textContent = person.split(' ')[0];
+      const totalJobs = allItems.filter(it => it.subitems.some(s => s.resp === person)).length;
+      const ct = document.createElement('div'); ct.className = 'person-count-lbl'; ct.textContent = totalJobs + ' job' + (totalJobs!==1?'s':'');
+      pc.appendChild(av); pc.appendChild(nm); pc.appendChild(ct);
+      tbl.appendChild(pc);
 
-      if(selectedPerson==='all'){
-        PEOPLE.forEach(person=>{
-          const pItems=sortItems(items.filter(it=>it.subitems.some(s=>s.resp===person)));
-          if(!pItems.length)return;
-          const sec=document.createElement('div'); sec.className='person-section';
-          const lbl=document.createElement('div'); lbl.className='person-label';
-          lbl.appendChild(makeAv(person,20,'person-av'));
-          const nm=document.createElement('span'); nm.className='person-name-lbl'; nm.textContent=person.split(' ')[0];
-          const ct=document.createElement('span'); ct.className='person-count-lbl'; ct.textContent=` ${pItems.length} job${pItems.length>1?'s':''}`;
-          lbl.appendChild(nm); lbl.appendChild(ct);
-          sec.appendChild(lbl);
-          const grid=document.createElement('div'); grid.className='cards-grid';
-          pItems.forEach(it=>grid.appendChild(buildCard(it,person)));
-          sec.appendChild(grid); drop.appendChild(sec);
-        });
-      } else {
-        const pItems=sortItems(items);
-        const grid=document.createElement('div'); grid.className='cards-grid';
-        if(!pItems.length) grid.innerHTML='<div class="col-empty">Nenhum job aqui</div>';
-        else pItems.forEach(it=>grid.appendChild(buildCard(it,selectedPerson)));
-        drop.appendChild(grid);
-      }
+      // células de status
+      STATUS_COLS.forEach(status => {
+        const cell = document.createElement('div');
+        cell.className = 'tbl-status-cell';
+        setupDrop(cell, status, person);
 
-      col.appendChild(drop); wrap.appendChild(col);
+        const items = sortItems(
+          allItems.filter(it => it.kanbanStatus === status && it.subitems.some(s => s.resp === person)),
+          person
+        );
+
+        if(items.length) {
+          const grid = document.createElement('div'); grid.className = 'cards-grid';
+          items.forEach(it => grid.appendChild(buildCard(it, person)));
+          cell.appendChild(grid);
+        }
+
+        tbl.appendChild(cell);
+      });
     });
   }
 
-  function sortItems(items){
+  function sortItems(items, person){
     return [...items].sort((a,b)=>{
-      const sa=selectedPerson==='all'?a.subitems:a.subitems.filter(s=>s.resp===selectedPerson);
-      const sb=selectedPerson==='all'?b.subitems:b.subitems.filter(s=>s.resp===selectedPerson);
-      const da=sa[0]?._range?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
-      const db=sb[0]?._range?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
-      return sortOrder==='asc'?da-db:db-da;
+      const sa = person ? a.subitems.filter(s=>s.resp===person) : a.subitems;
+      const sb = person ? b.subitems.filter(s=>s.resp===person) : b.subitems;
+      const da = sa[0]?._range?.getTime() ?? (sortOrder==='asc'?Infinity:-Infinity);
+      const db = sb[0]?._range?.getTime() ?? (sortOrder==='asc'?Infinity:-Infinity);
+      return sortOrder==='asc' ? da-db : db-da;
     });
   }
 
   function buildCard(item, personFilter){
-    const subs=personFilter==='all'?item.subitems:item.subitems.filter(s=>s.resp===personFilter);
+    const subs=item.subitems.filter(s=>s.resp===personFilter);
     const card=document.createElement('div');
     card.className='card'; card.draggable=true;
     setupDrag(card,item);
@@ -753,7 +790,9 @@ function initApp(monday) {
     const title=document.createElement('div'); title.className='card-title'; title.textContent=item.name; title.title=item.name;
     const actions=document.createElement('div'); actions.className='card-actions';
 
-    const btnU=document.createElement('button'); btnU.className='card-btn'; btnU.title='Atualizações'; btnU.textContent='💬';
+    // ícone updates — SVG igual ao Monday
+    const btnU=document.createElement('button'); btnU.className='card-btn'; btnU.title='Atualizações';
+    btnU.innerHTML=`<svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 2C5.58 2 2 5.36 2 9.5c0 1.9.72 3.63 1.9 4.97L2.5 17.5l3.3-1.1A8.1 8.1 0 0010 17c4.42 0 8-3.36 8-7.5S14.42 2 10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
     btnU.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id),kind:'updates'});});
 
     const btnO=document.createElement('button'); btnO.className='card-btn'; btnO.title='Abrir'; btnO.textContent='↗';
@@ -763,20 +802,27 @@ function initApp(monday) {
     top.appendChild(title); top.appendChild(actions);
     card.appendChild(top);
 
-    // briefing
-    const brief=document.createElement('div');
+    // briefing clicável
+    const brief=document.createElement(item.briefing?'a':'div');
     brief.className='card-briefing'+(item.briefing?'':' empty');
-    brief.textContent=item.briefing||'Sem briefing';
+    if(item.briefing){
+      brief.href=item.briefing;
+      brief.target='_blank';
+      brief.rel='noopener noreferrer';
+      brief.textContent=item.briefing;
+    } else {
+      brief.textContent='Sem briefing';
+    }
     brief.title=item.briefing||'';
     card.appendChild(brief);
 
     // subitems
     subs.forEach(sub=>{
       const row=document.createElement('div'); row.className='sub-row';
-      row.appendChild(makeAv(sub.resp,16,'sub-av'));
 
-      const nm=document.createElement('div'); nm.className='sub-name'; nm.textContent=sub.name||sub.resp.split(' ')[0]; nm.title=sub.name||'';
-      row.appendChild(nm);
+      // Tipo de Job em vez de avatar+nome
+      const tj=document.createElement('div'); tj.className='sub-name'; tj.textContent=sub.tipoJob||sub.name||'—'; tj.title=sub.tipoJob||sub.name||'';
+      row.appendChild(tj);
 
       // prazo
       const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
@@ -831,15 +877,6 @@ function initApp(monday) {
   }
 
   /* ══ EVENTOS ══ */
-  document.querySelectorAll('.ptab').forEach(tab=>{
-    tab.addEventListener('click',()=>{
-      document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
-      tab.classList.add('active');
-      selectedPerson=tab.dataset.person;
-      render();
-    });
-  });
-
   document.getElementById('sort-select').addEventListener('change',e=>{sortOrder=e.target.value;render();});
   document.getElementById('btn-refresh').addEventListener('click',()=>{if(currentBoardId)load(currentBoardId);});
   document.addEventListener('click',()=>document.querySelectorAll('.st-dd.open').forEach(d=>d.classList.remove('open')));
@@ -852,6 +889,21 @@ function initApp(monday) {
     currentBoardId=bId;
     const boardName=res.data.boardName||'Kanban';
     document.getElementById('hdr-board').textContent=boardName;
+    currentUserName = res.data.user?.name||'';
+    isMaiko = currentUserName === MAIKO_NAME;
+
+    // define quem é visível
+    if(isMaiko){
+      visiblePeople = PEOPLE; // vê todos
+      // mostra tabs
+      document.getElementById('person-tabs').style.display='flex';
+    } else {
+      // vê só a própria linha
+      visiblePeople = PEOPLE.filter(p => p === currentUserName || currentUserName.includes(p.split(' ')[0]));
+      if(!visiblePeople.length) visiblePeople = [currentUserName];
+      document.getElementById('person-tabs').style.display='none';
+    }
+
     await load(bId);
   });
 
