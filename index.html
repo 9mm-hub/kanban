@@ -97,12 +97,12 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .sname{font-size:10px;color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 /* PRAZO */
-.sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none}
+.sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
 .sprazo.sn{border-color:rgba(0,133,255,.5);color:#3d9bff;background:rgba(0,133,255,.08)}
-.sprazo input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;pointer-events:all}
+.sprazo input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:3;pointer-events:all;margin:0;padding:0;border:none;background:transparent}
 
 /* STATUS */
 .sst{position:relative;flex-shrink:0}
@@ -230,27 +230,38 @@ let _tt;
 function toast(msg,err){const t=document.getElementById('toast');t.textContent=msg;t.className=err?'show err':'show';clearTimeout(_tt);_tt=setTimeout(()=>t.className='',2500);}
 const ghost=document.getElementById('ghost');
 function setupDrag(cardEl,item,person){
-  // drag via card-top como handle
-  const handle=cardEl; // card inteiro é arrastável
-  handle.draggable=true;
-  handle.style.cursor='grab';
-  handle.addEventListener('dragstart',e=>{
-    // Bloquear dragstart se vier de input, button, a, ou .sprazo
-    if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='A'||e.target.closest('.sprazo')||e.target.closest('.stdd')||e.target.closest('.cbtn')){e.preventDefault();return;}
+  // Somente o título é o handle de drag
+  // O card NÃO é draggable por padrão — só habilita quando mousedown no título
+  const titleEl=cardEl.querySelector('.card-top');
+  if(!titleEl)return;
+  titleEl.style.cursor='grab';
+
+  titleEl.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    cardEl.draggable=true;
+  });
+
+  cardEl.addEventListener('dragstart',e=>{
+    if(!cardEl.draggable)return;
     dragItem={item,person};
     setTimeout(()=>cardEl.classList.add('dragging'),0);
     ghost.textContent=item.name||'';
-    ghost.style.cssText='position:fixed;left:-9999px;top:-9999px;display:block;z-index:9999;';
+    ghost.style.cssText='position:fixed;left:-9999px;top:-9999px;display:block;z-index:9999;background:#23233a;color:#fff;padding:4px 10px;border-radius:6px;font-size:12px;';
     try{e.dataTransfer.setDragImage(ghost,60,20);}catch(err){}
     e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain',item.id);
+    e.dataTransfer.setData('text/plain',String(item.id));
   });
-  handle.addEventListener('dragend',()=>{
+
+  cardEl.addEventListener('dragend',()=>{
+    cardEl.draggable=false;
     cardEl.classList.remove('dragging');
     ghost.style.display='none';
     dragItem=null;
     document.querySelectorAll('.col-body.drag-over').forEach(z=>z.classList.remove('drag-over'));
   });
+
+  // mouseup fora de drag também reseta
+  document.addEventListener('mouseup',()=>{ cardEl.draggable=false; },{passive:true});
 }
 
 function setupDrop(zone,targetSt,person){
@@ -392,11 +403,21 @@ function buildCard(item,person){
     const row=document.createElement('div');row.className='srow';
     // prazo
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
-    const prazo=document.createElement('div');prazo.className='sprazo '+prazoClass(dateVal);
-    prazo.title='Editar prazo';prazo.textContent='📅 '+prazoLabel(dateVal);
+    const prazo=document.createElement('label');prazo.className='sprazo '+prazoClass(dateVal);
+    prazo.title='Editar prazo';
+    const prazoTxt=document.createElement('span');prazoTxt.textContent='📅 '+prazoLabel(dateVal);prazoTxt.style.pointerEvents='none';
     const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.addEventListener('mousedown',e=>{e.stopPropagation();});di.addEventListener('dragstart',e=>e.stopPropagation());di.addEventListener('change',async e=>{e.stopPropagation();if(e.target.value)await mutPrazo(sub,e.target.value);});
-    prazo.appendChild(di);row.appendChild(prazo);
+    di.style.cssText='position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;z-index:3;';
+    di.addEventListener('mousedown',e=>e.stopPropagation());
+    di.addEventListener('dragstart',e=>e.stopPropagation());
+    di.addEventListener('change',async e=>{
+      e.stopPropagation();
+      const val=e.target.value;
+      if(!val)return;
+      if(!sub.cronColId){toast('Coluna Cronograma não encontrada',true);console.error('cronColId null',sub);return;}
+      await mutPrazo(sub,val);
+    });
+    prazo.appendChild(prazoTxt);prazo.appendChild(di);row.appendChild(prazo);
     // status
     const stWrap=document.createElement('div');stWrap.className='sst';
     const badge=document.createElement('div');badge.className=`stbadge ${stCls(sub.status)}`;badge.textContent=sub.status||'Em Pauta';
