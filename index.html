@@ -73,7 +73,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .col[data-s="Concluídos Ontem"] .col-title{color:#00a85a}
 .col[data-s="Pausado"] .col-dot{background:var(--pau-dot)}
 .col[data-s="Pausado"] .col-title{color:var(--pau-text)}
-.col-body{display:flex;flex-direction:column;gap:7px;min-height:40px;border-radius:var(--r);padding:2px;max-height:calc(4 * 130px + 3 * 7px);overflow-y:auto;overflow-x:hidden}.col-body::-webkit-scrollbar{width:4px}.col-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.col-body{display:flex;flex-direction:column;gap:7px;min-height:40px;border-radius:var(--r);padding:2px;overflow:visible}.col-scroll{max-height:calc(4 * 132px + 3 * 7px);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:7px}.col-scroll::-webkit-scrollbar{width:4px}.col-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .col-body.drag-over{background:rgba(108,95,213,.06);outline:1px dashed rgba(108,95,213,.35)}
 
 /* GRID 2 colunas dentro da col */
@@ -112,7 +112,7 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .stbadge.ea{background:var(--and-bg);border-color:var(--and-border);color:var(--and-text)}
 .stbadge.pa{background:var(--pau-bg);border-color:var(--pau-border);color:var(--pau-text)}
 .stbadge.co{background:var(--conc-bg);border-color:var(--conc-border);color:var(--conc-text)}
-.stdd{position:absolute;top:calc(100% + 3px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none;min-width:140px;overflow:hidden}
+.stdd{position:fixed;top:calc(100% + 3px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none;min-width:140px;overflow:hidden}
 .stdd.open{display:block}
 .stdd-item{padding:7px 11px;font-size:11px;color:var(--text-dim);cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .1s}
 .stdd-item:hover{background:var(--border);color:var(--text)}
@@ -192,7 +192,32 @@ let statusColId=null,boardId=null,isAdmin=false,isMainAdmin=false;
 let currentUserName='',subAdmins=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(q){let r=await monday.api(q);if(r?.errors){const ce=r.errors.find(e=>e.extensions?.code==='COMPLEXITY_BUDGET_EXHAUSTED');if(ce){await sleep((ce.extensions?.retry_in_seconds||30)*1000);return api(q);}throw new Error(r.errors[0]?.message||'API error');}return r;}
-async function fetchSchema(bId){const r1=await api(`query{boards(ids:[${bId}]){items_page(limit:1){items{subitems{board{columns{id title type}}}}}}}`);const items=r1.data.boards[0].items_page.items;const schema=(items.length&&items[0].subitems.length)?items[0].subitems[0].board.columns:[];const r2=await api(`query{boards(ids:[${bId}]){columns{id title type}}}`);const stCol=r2.data.boards[0].columns.find(c=>c.title==='Status');if(stCol)statusColId=stCol.id;return schema;}
+async function fetchSchema(bId){
+  // Buscar colunas do item pai (para statusColId do pai se necessário)
+  const r2=await api(`query{boards(ids:[${bId}]){columns{id title type}}}`);
+  const stCol=r2.data.boards[0].columns.find(c=>c.title==='Status');
+  if(stCol)statusColId=stCol.id;
+
+  // Tentar buscar schema de subitems — percorre items até achar um com subitem
+  let schema=[];
+  let cursor=null;
+  do {
+    const cp=cursor?`,cursor:"${cursor}"` :'';
+    const r1=await api(`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{subitems{board{id columns{id title type}}}}}}}`);
+    const page=r1.data.boards[0].items_page;
+    for(const it of page.items){
+      if(it.subitems&&it.subitems.length&&it.subitems[0].board?.columns?.length){
+        schema=it.subitems[0].board.columns;
+        break;
+      }
+    }
+    if(schema.length)break;
+    cursor=page.cursor||null;
+    if(cursor)await sleep(300);
+  } while(cursor);
+
+  return schema;
+}
 async function fetchUsers(){const r=await api('query{users{id name photo_thumb}}');(r.data.users||[]).forEach(u=>{if(u.name){userNameById[String(u.id)]=u.name;if(u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;}});}
 async function fetchItems(bId){const gRes=await api(`query{boards(ids:[${bId}]){groups{id title}}}`);const tgt=gRes.data.boards[0].groups.filter(g=>{const t=g.title.trim();return t==='Em Pauta'||t==='Em Andamento'||t==='Pausado'||t.includes('HOJE')||t.includes('Hoje')||t.includes('ONTEM')||t.includes('Ontem')||t==='Concluído'||t==='Concluido';});if(!tgt.length)return[];const tgtIds=new Set(tgt.map(g=>g.id));let fetched=[],cursor=null;do{const cp=cursor?`,cursor:"${cursor}"` :'';const q=`query{boards(ids:[${bId}]){items_page(limit:100${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;let res;try{res=await api(q);}catch(e){break;}const page=res.data.boards[0].items_page;fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));cursor=page.cursor||null;if(cursor)await sleep(200);}while(cursor);return fetched;}
 function processItems(raw,schema){const ctm={};schema.forEach(c=>ctm[c.id]=c.title);const pset=new Set();const result=raw.map(item=>{const gt=item._gt;let ks='Em Pauta';if(gt==='Em Andamento')ks='Em Andamento';else if(gt==='Pausado')ks='Pausado';else if(gt.includes('HOJE')||gt.includes('Hoje'))ks='Concluídos Hoje';else if(gt.includes('ONTEM')||gt.includes('Ontem'))ks='Concluídos Ontem';else if(gt==='Concluído'||gt==='Concluido')ks='Concluído';const subs=(item.subitems||[]).map(sub=>{const cols={},cids={};sub.column_values.forEach(c=>{const t=ctm[c.id]||c.id;cols[t]=c.text;cids[t]=c.id;});const resp=(cols['Resp.']||cols['Responsavel']||cols['Resp']||'').trim();const cron=cols['Cronograma']||'';const status=cols['Status']||'';const briefing=cols['Briefing']||cols['briefing']||'';const tipoJob=cols['Tipo de Job']||cols['Tipo']||'';return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,cronColId:cids['Cronograma']||null,statusColId:cids['Status']||null,_range:parseRange(cron)};}).filter(s=>s.resp);subs.forEach(s=>pset.add(s.resp));if(!subs.length)return null;const briefing=subs.find(s=>s.briefing)?.briefing||'';return{id:item.id,name:item.name,ks,briefing,subs};}).filter(Boolean);allPeople=[...pset].sort((a,b)=>a.localeCompare(b));return result;}
@@ -332,38 +357,15 @@ function render(){
     STATUS_COLS.forEach(st=>{
       // Concluídos Hoje: subitem DESTA PESSOA com status concluído, independente do grupo pai
       // As outras colunas excluem items onde o subitem desta pessoa está concluído
-      let pItems;
-      if(st==='Concluídos Hoje'){
-        pItems=sortItems(allItems.filter(it=>{
-          const mySubs=it.subs.filter(s=>s.resp===person);
-          return mySubs.length&&mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
-        }),person);
-      } else if(st==='Concluídos Ontem'||st==='Concluído'){
-        // Manter comportamento original pelo grupo pai, mas excluir se já aparece em Concluídos Hoje
-        pItems=sortItems(allItems.filter(it=>{
-          const mySubs=it.subs.filter(s=>s.resp===person);
-          if(!mySubs.length)return false;
-          const subConcluido=mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
-          if(subConcluido)return false; // já aparece em Concluídos Hoje
-          return it.ks===st;
-        }),person);
-      } else {
-        // Em Pauta, Em Andamento, Pausado: grupo pai bate E subitem não está concluído
-        pItems=sortItems(allItems.filter(it=>{
-          const mySubs=it.subs.filter(s=>s.resp===person);
-          if(!mySubs.length)return false;
-          const subConcluido=mySubs.some(s=>s.status&&s.status.toLowerCase().includes('conclu'));
-          if(subConcluido)return false; // vai aparecer em Concluídos Hoje
-          return it.ks===st;
-        }),person);
-      }
+      const pItems=sortItems(allItems.filter(it=>it.ks===st&&it.subs.some(s=>s.resp===person)),person);
       const col=document.createElement('div');col.className='col';col.dataset.s=st;
       col.innerHTML=`<div class="col-hdr"><div class="col-dot"></div><div class="col-title">${st}</div><div class="col-count">${pItems.length}</div></div>`;
       const body=document.createElement('div');body.className='col-body';
       setupDrop(body,st,person);
+      const scroll=document.createElement('div');scroll.className='col-scroll';
       const grid=document.createElement('div');grid.className='cgrid';
       pItems.forEach(it=>grid.appendChild(buildCard(it,person)));
-      body.appendChild(grid);
+      scroll.appendChild(grid);body.appendChild(scroll);
       col.appendChild(body);colsWrap.appendChild(col);
     });
 
@@ -428,7 +430,17 @@ function buildCard(item,person){
       di2.addEventListener('click',async e=>{e.stopPropagation();dd.classList.remove('open');await mutSubStatus(sub,label);});
       dd.appendChild(di2);
     });
-    badge.addEventListener('dragstart',e=>e.stopPropagation());badge.addEventListener('click',e=>{e.stopPropagation();document.querySelectorAll('.stdd.open').forEach(d=>{if(d!==dd)d.classList.remove('open');});dd.classList.toggle('open');});
+    badge.addEventListener('dragstart',e=>e.stopPropagation());
+    badge.addEventListener('click',e=>{
+      e.stopPropagation();
+      document.querySelectorAll('.stdd.open').forEach(d=>{if(d!==dd)d.classList.remove('open');});
+      if(!dd.classList.contains('open')){
+        const r=badge.getBoundingClientRect();
+        dd.style.top=(r.bottom+4)+'px';
+        dd.style.left=r.left+'px';
+      }
+      dd.classList.toggle('open');
+    });
     stWrap.appendChild(badge);stWrap.appendChild(dd);row.appendChild(stWrap);
     // spacer
     const sp=document.createElement('div');sp.style.flex='1';row.appendChild(sp);
