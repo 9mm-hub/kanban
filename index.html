@@ -192,6 +192,7 @@ function initApp(monday) {
 
   /* FETCH */
   async function fetchSchema(bId){
+    console.log('[KANBAN] fetchSchema iniciado, bId:', bId);
     const r1=await api(`query{boards(ids:[${bId}]){items_page(limit:1){items{subitems{board{columns{id title type}}}}}}}`);
     const items=r1.data.boards[0].items_page.items;
     const schema=(items.length&&items[0].subitems.length)?items[0].subitems[0].board.columns:[];
@@ -203,14 +204,18 @@ function initApp(monday) {
   }
 
   async function fetchUsers(){
+    console.log('[KANBAN] fetchUsers iniciado');
     const r=await api('query{users{id name photo_thumb}}');
     (r.data.users||[]).forEach(u=>{if(u.name&&u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;});
   }
 
   async function fetchItems(bId){
+    console.log('[KANBAN] fetchItems iniciado, bId:', bId);
     const gRes=await api(`query{boards(ids:[${bId}]){groups{id title}}}`);
+    console.log('[KANBAN] grupos encontrados:', gRes.data.boards[0].groups.map(g=>g.title));
     const targetGroups=gRes.data.boards[0].groups.filter(g=>{const t=g.title.trim();return t==='Em Pauta'||t==='Em Andamento'||t.includes('HOJE')||t.includes('Hoje');});
-    if(!targetGroups.length)return[];
+    console.log('[KANBAN] grupos alvo:', targetGroups.map(g=>g.title));
+    if(!targetGroups.length){console.log('[KANBAN] nenhum grupo alvo!');return[];}
     const groupIds=new Set(targetGroups.map(g=>g.id));
     const groupById={};targetGroups.forEach(g=>groupById[g.id]=g.title.trim());
     let fetched=[],cursor=null;
@@ -220,6 +225,7 @@ function initApp(monday) {
       let res;try{res=await api(q);}catch(e){break;}
       const page=res.data.boards[0].items_page;
       const relevant=page.items.filter(it=>groupIds.has(it.group.id));
+      console.log('[KANBAN] items nesta página:', page.items.length, '| relevantes:', relevant.length);
       fetched=fetched.concat(relevant.map(it=>({...it,_groupTitle:it.group.title.trim()})));
       cursor=page.cursor||null;
       if(cursor)await sleep(300);
@@ -485,6 +491,7 @@ function initApp(monday) {
 
   /* CONTEXTO */
   monday.listen('context',async res=>{
+    console.log('[KANBAN] contexto recebido:', JSON.stringify(res.data).slice(0,200));
     const bId=res.data.boardId||(res.data.boardIds&&res.data.boardIds[0]);
     currentBoardId=bId;
     document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';
