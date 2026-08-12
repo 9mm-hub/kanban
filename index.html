@@ -148,8 +148,6 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
       <button class="hbtn" id="fp-btn">Todas as pessoas</button>
       <div id="fp-dd"></div>
     </div>
-    <button class="hbtn" id="btn-save-view" style="display:none" title="Salvar filtro atual como vista padrão">💾</button>
-    <button class="hbtn" id="btn-restore-view" style="display:none" title="Restaurar vista salva">↩</button>
     <select id="sort-sel"><option value="asc">Prazo ↑</option><option value="desc">Prazo ↓</option></select>
     <button class="hbtn" id="btn-access" style="display:none">🔒 Acesso</button>
     <button class="hbtn" id="btn-refresh">↻</button>
@@ -333,8 +331,6 @@ fpBtn.addEventListener('click',e=>{e.stopPropagation();fpDd.classList.toggle('op
 document.addEventListener('click',e=>{if(!fpDd.contains(e.target)&&e.target!==fpBtn)fpDd.classList.remove('open');if(!e.target.closest('.sst'))document.querySelectorAll('.stdd.open').forEach(d=>d.classList.remove('open'));});
 document.getElementById('sort-sel').addEventListener('change',e=>{sortOrder=e.target.value;render();});
 document.getElementById('btn-refresh').addEventListener('click',()=>{if(boardId)load(boardId);});
-document.getElementById('btn-save-view').addEventListener('click',saveView);
-document.getElementById('btn-restore-view').addEventListener('click',restoreView);
 document.getElementById('btn-access').addEventListener('click',openAccess);
 document.getElementById('btn-save-access').addEventListener('click',async()=>{subAdmins=[...document.querySelectorAll('#access-list input:checked')].map(c=>c.dataset.uid).filter(Boolean);await saveSubAdmins();document.getElementById('access-panel').classList.remove('open');toast('Acesso guardado!');const uid=String(Object.keys(userNameById).find(id=>userNameById[id]===currentUserName)||'');isAdmin=isMainAdmin||subAdmins.includes(uid);if(isAdmin){populateFilter();document.getElementById('fp-wrap').style.display='block';}render();});
 document.getElementById('btn-close-access').addEventListener('click',()=>document.getElementById('access-panel').classList.remove('open'));
