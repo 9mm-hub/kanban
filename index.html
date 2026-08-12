@@ -179,7 +179,7 @@ const STATUS_COLS=['Em Pauta','Em Andamento','Concluído'];
 const STATUS_META={'Em Pauta':{cls:'ep',dot:'#0085ff'},'Em Andamento':{cls:'ea',dot:'#ffb900'},'Pausado':{cls:'pa',dot:'#5c5c6b'},'Concluído':{cls:'co',dot:'#00ca72'}};
 const MON=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 let allItems=[],allPeople=[],userNameById={},userPhotoById={};
-let selPersons=[],sortOrder='asc',dragItem=null;
+let selPersons=[],sortOrder='asc',dragItem=null,autoSaveEnabled=false;
 let statusColId=null,boardId=null,isAdmin=false,isMainAdmin=false;
 let currentUserName='',subAdmins=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -209,7 +209,7 @@ document.addEventListener('dragover',e=>{if(ghost.style.display==='block'){ghost
 function setupDrop(zone,targetSt,person){zone.addEventListener('dragover',e=>{if(!dragItem)return;e.preventDefault();document.querySelectorAll('.col-body').forEach(z=>z.classList.remove('drag-over'));zone.classList.add('drag-over');});zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));zone.addEventListener('drop',async e=>{e.preventDefault();zone.classList.remove('drag-over');if(!dragItem||dragItem.ks===targetSt)return;await mutItemStatus(dragItem,targetSt);render();});}
 function populateFilter(){const dd=document.getElementById('fp-dd');dd.innerHTML='';const allLbl=document.createElement('label');allLbl.className='fp-sep';const allCk=document.createElement('input');allCk.type='checkbox';allCk.checked=!selPersons.length;allLbl.appendChild(allCk);allLbl.appendChild(document.createTextNode(' Todas as pessoas'));dd.appendChild(allLbl);allCk.addEventListener('change',()=>{if(allCk.checked){selPersons=[];dd.querySelectorAll('input[data-p]').forEach(c=>c.checked=false);}updateFpBtn();saveFilter();render();});allPeople.forEach(name=>{const lbl=document.createElement('label');const ck=document.createElement('input');ck.type='checkbox';ck.dataset.p=name;ck.checked=selPersons.includes(name);lbl.appendChild(ck);lbl.appendChild(document.createTextNode(' '+name));lbl.addEventListener('change',()=>{if(ck.checked){if(!selPersons.includes(name))selPersons.push(name);}else selPersons=selPersons.filter(p=>p!==name);allCk.checked=!selPersons.length;updateFpBtn();saveFilter();render();});dd.appendChild(lbl);});updateFpBtn();}
 function updateFpBtn(){const btn=document.getElementById('fp-btn');btn.textContent=!selPersons.length?'Todas as pessoas':selPersons.length===1?selPersons[0]:selPersons.length+' pessoas';}
-async function saveFilter(){try{await monday.storage.setItem('kf_'+boardId,JSON.stringify(selPersons));}catch(e){}}
+async function saveFilter(){if(!autoSaveEnabled)return;try{await monday.storage.setItem('kf_'+boardId,JSON.stringify(selPersons));}catch(e){}}
 async function loadFilter(){try{const r=await monday.storage.getItem('kf_'+boardId);selPersons=r.data?.value?JSON.parse(r.data.value):[];}catch(e){selPersons=[];}}
 async function saveView(){
   try{
@@ -346,7 +346,7 @@ document.getElementById('btn-access').addEventListener('click',openAccess);
 document.getElementById('btn-save-access').addEventListener('click',async()=>{subAdmins=[...document.querySelectorAll('#access-list input:checked')].map(c=>c.dataset.uid).filter(Boolean);await saveSubAdmins();document.getElementById('access-panel').classList.remove('open');toast('Acesso guardado!');const uid=String(Object.keys(userNameById).find(id=>userNameById[id]===currentUserName)||'');isAdmin=isMainAdmin||subAdmins.includes(uid);if(isAdmin){populateFilter();document.getElementById('fp-wrap').style.display='block';}render();});
 document.getElementById('btn-close-access').addEventListener('click',()=>document.getElementById('access-panel').classList.remove('open'));
 setInterval(()=>{if(boardId)load(boardId);},5*60*1000);
-monday.listen('context',async res=>{const bId=res.data.boardId||(res.data.boardIds&&res.data.boardIds[0]);boardId=bId;document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';currentUserName=(res.data.user?.name||'').trim();isMainAdmin=res.data.user?.isAdmin===true;await loadSubAdmins();const uid=String(res.data.user?.id||'');isAdmin=isMainAdmin||subAdmins.includes(uid);console.log('[KANBAN] user:',currentUserName,'isMainAdmin:',isMainAdmin,'isAdmin:',isAdmin,'uid:',uid,'subAdmins:',subAdmins);await load(bId);});
+monday.listen('context',async res=>{const bId=res.data.boardId||(res.data.boardIds&&res.data.boardIds[0]);boardId=bId;document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';currentUserName=(res.data.user?.name||'').trim();isMainAdmin=res.data.user?.isAdmin===true;await loadSubAdmins();const uid=String(res.data.user?.id||'');isAdmin=isMainAdmin||subAdmins.includes(uid);await load(bId);});
 } // fim initKanban
 
 </script>
