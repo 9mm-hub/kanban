@@ -241,7 +241,7 @@ function initApp(monday) {
       let kanbanStatus='Em Pauta';
       if(gt==='Em Andamento')kanbanStatus='Em Andamento';
       else if(gt.includes('HOJE')||gt.includes('Hoje'))kanbanStatus='Concluído';
-      const subitems=(item.subitems||[]).map(sub=>{
+      const allSubs=(item.subitems||[]).map(sub=>{
         const cols={},colIds={};
         sub.column_values.forEach(c=>{const title=ctm[c.id]||c.id;cols[title]=c.text;colIds[title]=c.id;});
         const resp=cols['Resp.']||cols['Responsavel']||cols['Resp']||'';
@@ -251,7 +251,9 @@ function initApp(monday) {
         const tipoJob=cols['Tipo de Job']||cols['Tipo']||'';
         return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,
           cronColId:colIds['Cronograma']||null,statusColId:colIds['Status']||null,_range:parseRange(cron)};
-      }).filter(s=>PEOPLE.includes(s.resp));
+      });
+      if(allSubs.length>0)console.log('[KANBAN] primeiro resp:', allSubs[0]?.resp, '| PEOPLE:', PEOPLE);
+      const subitems=allSubs.filter(s=>PEOPLE.includes(s.resp));
       if(!subitems.length)return null;
       const briefing=subitems.find(s=>s.briefing)?.briefing||'';
       return{id:item.id,name:item.name,kanbanStatus,briefing,subitems};
