@@ -437,13 +437,7 @@ a.card-briefing:hover { color: var(--accent); border-left-color: var(--accent); 
   <div id="hdr-sep"></div>
   <div id="hdr-board">—</div>
   <div id="hdr-right">
-    <div id="person-tabs">
-      <button class="ptab all-tab active" data-person="all">Todos</button>
-      <button class="ptab" data-person="Maiko da Silva">Maiko</button>
-      <button class="ptab" data-person="Isabele Coelho">Isabele</button>
-      <button class="ptab" data-person="Gabriela Paganini">Gabi</button>
-      <button class="ptab" data-person="Letícia Santos">Letícia</button>
-    </div>
+    <div id="fperson-wrap" style="display:none;position:relative"><button id="fperson-btn" style="background:#212127;border:1px solid #2e2e38;color:#9494a2;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">Todas as pessoas</button><div id="fperson-dd" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#1e1e1e;border:1px solid #444;border-radius:8px;z-index:500;min-width:180px;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.6)"></div></div>
     <select id="sort-select">
       <option value="asc">Prazo ↑</option>
       <option value="desc">Prazo ↓</option>
@@ -480,16 +474,10 @@ function initApp(monday) {
   };
 
   /* ══ ESTADO ══ */
-  let allItems      = [];
-  let userPhotoById = {};
-  let currentUserName = '';
-  let isMaiko       = false;
-  let sortOrder     = 'asc';
-  let colSchema     = null;
-  let statusColId   = null;
-  let currentBoardId= null;
-  let dragItemData  = null;
-  let visiblePeople = PEOPLE; // pessoas visíveis dependendo do usuário
+  let allItems=[], allPeople=[], userPhotoById={};
+  let selPersons=[], sortOrder='asc';
+  let colSchema=null, statusColId=null, currentBoardId=null, dragItemData=null;
+  let isAdmin=false, currentUserName='';
 
   /* ══ API ══ */
   async function api(q) {
@@ -526,20 +514,19 @@ function initApp(monday) {
 
   async function fetchItems(bId) {
     const gRes = await api(`query{boards(ids:[${bId}]){groups{id title}}}`);
-    const targetGroups = gRes.data.boards[0].groups.filter(g => {
+    const tgt = gRes.data.boards[0].groups.filter(g => {
       const t = g.title.trim();
       return t==='Em Pauta' || t==='Em Andamento' || t.includes('HOJE') || t.includes('Hoje');
     });
-    if(!targetGroups.length) return [];
-    const targetGroupIds = new Set(targetGroups.map(g=>g.id));
+    if(!tgt.length) return [];
+    const tgtIds = new Set(tgt.map(g=>g.id));
     let fetched=[], cursor=null;
     do {
       const cp = cursor ? `,cursor:"${cursor}"` : '';
       const q = `query{boards(ids:[${bId}]){items_page(limit:100${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;
       let res; try{ res=await api(q); }catch(e){ break; }
       const page = res.data.boards[0].items_page;
-      const relevant = page.items.filter(it=>targetGroupIds.has(it.group.id));
-      fetched = fetched.concat(relevant.map(it=>({...it, _groupTitle:it.group.title.trim()})));
+      fetched = fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_groupTitle:it.group.title.trim()})));
       cursor = page.cursor||null;
       if(cursor) await sleep(200);
     } while(cursor);
@@ -550,9 +537,9 @@ function initApp(monday) {
   function processItems(raw, schema) {
     const ctm = {};
     schema.forEach(c => ctm[c.id] = c.title);
-    const peopleSet = new Set();
+    const _pSet=new Set();
 
-    const result = raw.map(item => {
+    const _r = raw.map(item => {
       const gt = item._groupTitle;
       let kanbanStatus = 'Em Pauta';
       if(gt==='Em Andamento') kanbanStatus = 'Em Andamento';
@@ -577,15 +564,15 @@ function initApp(monday) {
           _range:parseRange(cron),
         };
       }).filter(s => s.resp);
-      subitems.forEach(s=>peopleSet.add(s.resp));
+      subitems.forEach(s=>_pSet.add(s.resp));
 
       if(!subitems.length) return null;
 
       const briefing = subitems.find(s=>s.briefing)?.briefing || '';
       return { id:item.id, name:item.name, kanbanStatus, briefing, subitems };
     }).filter(Boolean);
-    allPeople=[...peopleSet].sort((a,b)=>a.localeCompare(b));
-    return result;
+    allPeople=[..._pSet].sort((a,b)=>a.localeCompare(b));
+    return _r;
   }
 
   /* ══ UTILS DATA ══ */
@@ -737,7 +724,8 @@ function initApp(monday) {
     });
 
     // ── LINHAS POR PESSOA ──
-    visiblePeople.forEach(person => {
+    const showPeople=isAdmin?(selPersons.length?selPersons:allPeople):[currentUserName];
+    showPeople.forEach(person => {
       // célula de pessoa
       const pc = document.createElement('div');
       pc.className = 'tbl-person-cell';
@@ -869,7 +857,7 @@ function initApp(monday) {
       await loadFilter();
       const raw=await fetchItems(bId);
       allItems=processItems(raw,colSchema);
-      if(isAdmin){ populateFilter(); document.getElementById('fperson-wrap').style.display='block'; }
+      if(isAdmin){populateFilter();document.getElementById('fperson-wrap').style.display='block';}
       document.getElementById('loading').style.display='none';
       document.getElementById('board-wrap').style.display='flex';
       render();
@@ -893,18 +881,13 @@ function initApp(monday) {
     const boardName=res.data.boardName||'Kanban';
     document.getElementById('hdr-board').textContent=boardName;
     currentUserName = res.data.user?.name||'';
-    isMaiko = currentUserName === MAIKO_NAME;
+    isAdmin = currentUserName === MAIKO_NAME;
 
     // define quem é visível
-    if(isMaiko){
-      visiblePeople = PEOPLE; // vê todos
-      // mostra tabs
-      document.getElementById('person-tabs').style.display='flex';
+    if(isAdmin){
+      isAdmin=true;
     } else {
-      // vê só a própria linha
-      visiblePeople = PEOPLE.filter(p => p === currentUserName || currentUserName.includes(p.split(' ')[0]));
-      if(!visiblePeople.length) visiblePeople = [currentUserName];
-      document.getElementById('person-tabs').style.display='none';
+      isAdmin=false;
     }
 
     await load(bId);
