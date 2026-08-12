@@ -849,6 +849,27 @@ function initApp(monday) {
   }
 
   /* ══ LOAD ══ */
+  function populateFilter(){
+    const dd=document.getElementById('fperson-dd');dd.innerHTML='';
+    const st='display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12px;color:#ddd;cursor:pointer;user-select:none';
+    const allLbl=document.createElement('label');allLbl.style.cssText=st+';border-bottom:1px solid #333;margin-bottom:2px';
+    const allCk=document.createElement('input');allCk.type='checkbox';allCk.checked=!selPersons.length;allCk.style.accentColor='#6c5fd5';
+    allLbl.appendChild(allCk);allLbl.appendChild(document.createTextNode(' Todas as pessoas'));dd.appendChild(allLbl);
+    allCk.addEventListener('change',()=>{if(allCk.checked){selPersons=[];dd.querySelectorAll('input[data-p]').forEach(c=>c.checked=false);}updatePersonBtn();saveFilter();render();});
+    allPeople.forEach(name=>{
+      const lbl=document.createElement('label');lbl.style.cssText=st;
+      const ck=document.createElement('input');ck.type='checkbox';ck.dataset.p=name;ck.checked=selPersons.includes(name);ck.style.accentColor='#6c5fd5';
+      lbl.appendChild(ck);lbl.appendChild(document.createTextNode(' '+name));
+      lbl.addEventListener('mouseover',()=>lbl.style.background='#2e2e2e');lbl.addEventListener('mouseout',()=>lbl.style.background='');
+      lbl.addEventListener('change',()=>{if(ck.checked){if(!selPersons.includes(name))selPersons.push(name);}else selPersons=selPersons.filter(p=>p!==name);allCk.checked=!selPersons.length;updatePersonBtn();saveFilter();render();});
+      dd.appendChild(lbl);
+    });
+    updatePersonBtn();
+  }
+  function updatePersonBtn(){const btn=document.getElementById('fperson-btn');btn.textContent=!selPersons.length?'Todas as pessoas':selPersons.length===1?selPersons[0]:selPersons.length+' pessoas';}
+  async function saveFilter(){try{await monday.storage.setItem('kf_'+currentBoardId,JSON.stringify(selPersons));}catch(e){}}
+  async function loadFilter(){try{const r=await monday.storage.getItem('kf_'+currentBoardId);selPersons=r.data?.value?JSON.parse(r.data.value):[];}catch(e){selPersons=[];}}
+
   async function load(bId){
     document.getElementById('loading').style.display='flex';
     document.getElementById('board-wrap').style.display='none';
