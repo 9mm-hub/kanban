@@ -252,9 +252,8 @@ function initApp(monday) {
         return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,
           cronColId:colIds['Cronograma']||null,statusColId:colIds['Status']||null,_range:parseRange(cron)};
       });
-      if(allSubs.length>0)console.log('[KANBAN] primeiro resp:', allSubs[0]?.resp, '| PEOPLE:', PEOPLE);
-      const normalize=s=>(s||'').trim().toLowerCase();
-      const subitems=allSubs.filter(s=>PEOPLE.some(p=>normalize(p)===normalize(s.resp)));
+      if(allSubs.length>0)console.log('[KANBAN] primeiro resp:', JSON.stringify(allSubs[0]?.resp));
+      const subitems=allSubs.filter(s=>s.resp&&s.resp.trim());
       if(!subitems.length)return null;
       const briefing=subitems.find(s=>s.briefing)?.briefing||'';
       return{id:item.id,name:item.name,kanbanStatus,briefing,subitems};
