@@ -148,6 +148,8 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
       <button class="hbtn" id="fp-btn">Todas as pessoas</button>
       <div id="fp-dd"></div>
     </div>
+    <button class="hbtn" id="btn-save-view" style="display:none" title="Salvar filtro atual como vista padrão">💾</button>
+    <button class="hbtn" id="btn-restore-view" style="display:none" title="Restaurar vista salva">↩</button>
     <select id="sort-sel"><option value="asc">Prazo ↑</option><option value="desc">Prazo ↓</option></select>
     <button class="hbtn" id="btn-access" style="display:none">🔒 Acesso</button>
     <button class="hbtn" id="btn-refresh">↻</button>
@@ -211,6 +213,23 @@ function populateFilter(){const dd=document.getElementById('fp-dd');dd.innerHTML
 function updateFpBtn(){const btn=document.getElementById('fp-btn');btn.textContent=!selPersons.length?'Todas as pessoas':selPersons.length===1?selPersons[0]:selPersons.length+' pessoas';}
 async function saveFilter(){try{await monday.storage.setItem('kf_'+boardId,JSON.stringify(selPersons));}catch(e){}}
 async function loadFilter(){try{const r=await monday.storage.getItem('kf_'+boardId);selPersons=r.data?.value?JSON.parse(r.data.value):[];}catch(e){selPersons=[];}}
+async function saveView(){
+  try{
+    await monday.storage.setItem('kv_'+boardId,JSON.stringify(selPersons));
+    toast('Vista salva!');
+  }catch(e){toast('Erro ao salvar vista',true);}
+}
+async function restoreView(){
+  try{
+    const r=await monday.storage.getItem('kv_'+boardId);
+    const saved=r.data?.value?JSON.parse(r.data.value):[];
+    selPersons=saved;
+    await saveFilter();
+    populateFilter();
+    render();
+    toast('Vista restaurada!');
+  }catch(e){toast('Erro ao restaurar vista',true);}
+}
 async function loadSubAdmins(){try{const r=await monday.storage.getItem('ka_'+boardId);subAdmins=r.data?.value?JSON.parse(r.data.value):[];}catch(e){subAdmins=[];}}
 async function saveSubAdmins(){try{await monday.storage.setItem('ka_'+boardId,JSON.stringify(subAdmins));}catch(e){toast('Erro ao guardar acesso',true);}}
 function openAccess(){const list=document.getElementById('access-list');list.innerHTML='';[...new Set(allItems.flatMap(it=>it.subs.map(s=>s.resp)))].sort((a,b)=>a.localeCompare(b)).forEach(name=>{const uid=Object.keys(userNameById).find(id=>userNameById[id]===name)||'';const item=document.createElement('div');item.className='access-item';const ck=document.createElement('input');ck.type='checkbox';ck.dataset.uid=uid;ck.checked=!!(uid&&subAdmins.includes(uid));const lbl=document.createElement('span');lbl.textContent=name;item.appendChild(ck);item.appendChild(lbl);list.appendChild(item);});document.getElementById('access-panel').classList.add('open');}
@@ -314,6 +333,8 @@ fpBtn.addEventListener('click',e=>{e.stopPropagation();fpDd.classList.toggle('op
 document.addEventListener('click',e=>{if(!fpDd.contains(e.target)&&e.target!==fpBtn)fpDd.classList.remove('open');if(!e.target.closest('.sst'))document.querySelectorAll('.stdd.open').forEach(d=>d.classList.remove('open'));});
 document.getElementById('sort-sel').addEventListener('change',e=>{sortOrder=e.target.value;render();});
 document.getElementById('btn-refresh').addEventListener('click',()=>{if(boardId)load(boardId);});
+document.getElementById('btn-save-view').addEventListener('click',saveView);
+document.getElementById('btn-restore-view').addEventListener('click',restoreView);
 document.getElementById('btn-access').addEventListener('click',openAccess);
 document.getElementById('btn-save-access').addEventListener('click',async()=>{subAdmins=[...document.querySelectorAll('#access-list input:checked')].map(c=>c.dataset.uid).filter(Boolean);await saveSubAdmins();document.getElementById('access-panel').classList.remove('open');toast('Acesso guardado!');const uid=String(Object.keys(userNameById).find(id=>userNameById[id]===currentUserName)||'');isAdmin=isMainAdmin||subAdmins.includes(uid);if(isAdmin){populateFilter();document.getElementById('fp-wrap').style.display='block';}render();});
 document.getElementById('btn-close-access').addEventListener('click',()=>document.getElementById('access-panel').classList.remove('open'));
