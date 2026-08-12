@@ -365,6 +365,7 @@ function initApp(monday) {
 
   /* RENDER */
   function render(){
+    console.log('[KANBAN] render chamado, allItems:', allItems.length, 'visiblePeople:', visiblePeople);
     const wrap=document.getElementById('board-wrap');wrap.innerHTML='';
 
     // pessoas a mostrar
@@ -470,6 +471,8 @@ function initApp(monday) {
       await loadFilter();
       const raw=await fetchItems(bId);
       allItems=processItems(raw,colSchema);
+      console.log('[KANBAN] allItems processados:', allItems.length);
+      if(allItems.length>0)console.log('[KANBAN] primeiro item:', JSON.stringify(allItems[0]).slice(0,300));
       if(isAdmin)populateFilter();
       document.getElementById('loading').style.display='none';
       document.getElementById('board-wrap').style.display='flex';
