@@ -181,6 +181,7 @@ function initApp(monday) {
   let allItems=[], userPhotoById={}, selPersons=[], sortOrder='asc';
   let colSchema=null, statusColId=null, currentBoardId=null, dragItemData=null;
   let isAdmin=false, currentUserName='';
+  let visiblePeople=[];
 
   /* API */
   async function api(q){
@@ -365,13 +366,13 @@ function initApp(monday) {
 
   /* RENDER */
   function render(){
-    console.log('[KANBAN] render chamado, allItems:', allItems.length, 'visiblePeople:', visiblePeople);
+    console.log('[KANBAN] render chamado, allItems:', allItems.length, 'isAdmin:', isAdmin, 'currentUserName:', currentUserName);
     const wrap=document.getElementById('board-wrap');wrap.innerHTML='';
 
-    // pessoas a mostrar
-    const visiblePeople=isAdmin
+    // pessoas a mostrar — usando variável de estado
+    visiblePeople=isAdmin
       ?(selPersons.length?selPersons:PEOPLE)
-      :[currentUserName].filter(n=>PEOPLE.includes(n));
+      :[currentUserName].filter(n=>n&&n.trim());
 
     STATUS_COLS.forEach(status=>{
       const col=document.createElement('div');col.className='col';col.dataset.status=status;
