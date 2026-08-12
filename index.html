@@ -368,73 +368,73 @@ async function mutSubStatus(sub,newLabel){
   }catch(e){toast('Erro ao atualizar status: '+e.message,true);console.error(e);}
 }
 
-// ─── DRAG & DROP ──────────────────────────────────────────────────────
-const ghost=document.getElementById('ghost');
-
+// ─── DRAG (mousedown/mousemove/mouseup — igual ao pauta-timeline) ─────
 function setupDrag(cardEl,item,person){
-  // O card inteiro é draggable, mas começa como false
-  // Só ativa no mousedown do card-top (área do título)
-  cardEl.draggable=false;
-
+  // só arrasta pelo título do card
   const handle=cardEl.querySelector('.card-top');
-  if(handle){
-    handle.style.cursor='grab';
-    handle.addEventListener('mousedown',e=>{
-      if(e.button!==0)return;
-      cardEl.draggable=true;
-    });
-  }
+  if(!handle)return;
+  handle.style.cursor='grab';
 
-  cardEl.addEventListener('dragstart',e=>{
-    if(!cardEl.draggable){e.preventDefault();return;}
-    dragItem={item,person};
+  handle.addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault(); // evita seleção de texto
+
+    const startX=e.clientX,startY=e.clientY;
+    let dragging=false;
+
+    // ghost que segue o cursor
+    const ghost=document.createElement('div');
+    ghost.style.cssText='position:fixed;pointer-events:none;z-index:9999;background:#23233a;color:#e4e4ea;border:1px solid #6c5fd5;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;white-space:nowrap;display:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;';
     ghost.textContent=item.name||'';
-    ghost.style.cssText='position:fixed;left:-9999px;top:-9999px;display:block;z-index:9999;background:#23233a;color:#e4e4ea;padding:5px 12px;border-radius:6px;font-size:12px;border:1px solid #6c5fd5;';
-    try{e.dataTransfer.setDragImage(ghost,60,20);}catch(_){}
-    e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain',String(item.id));
-    setTimeout(()=>cardEl.classList.add('dragging'),0);
-  });
+    document.body.appendChild(ghost);
 
-  cardEl.addEventListener('dragend',()=>{
-    cardEl.draggable=false;
-    cardEl.classList.remove('dragging');
-    ghost.style.display='none';
-    dragItem=null;
-    document.querySelectorAll('.drop-zone.drag-over').forEach(z=>z.classList.remove('drag-over'));
+    function onMove(ev){
+      const dx=ev.clientX-startX,dy=ev.clientY-startY;
+      if(!dragging&&(Math.abs(dx)>6||Math.abs(dy)>6)){
+        dragging=true;
+        cardEl.classList.add('dragging');
+        handle.style.cursor='grabbing';
+      }
+      if(!dragging)return;
+      ghost.style.display='block';
+      ghost.style.left=(ev.clientX+14)+'px';
+      ghost.style.top=(ev.clientY+14)+'px';
+      // highlight da drop zone sob o cursor
+      document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=el?.closest('.col-scroll');
+      if(zone&&!READONLY_COLS.has(zone.closest('.col')?.dataset?.s))zone.classList.add('drag-over');
+    }
+
+    async function onUp(ev){
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      ghost.remove();
+      cardEl.classList.remove('dragging');
+      handle.style.cursor='grab';
+      document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
+
+      if(!dragging)return;
+
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      const zone=el?.closest('.col-scroll');
+      const targetSt=zone?.closest('.col')?.dataset?.s;
+      if(!targetSt||READONLY_COLS.has(targetSt))return;
+
+      const newLabel=COL_TO_STATUS[targetSt];
+      if(!newLabel)return;
+      const mySub=item.subs.find(s=>s.resp===person);
+      if(!mySub){toast('Subitem não encontrado',true);return;}
+      if(mySub.status===newLabel)return;
+      await mutSubStatus(mySub,newLabel);
+    }
+
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
   });
 }
 
-function setupDrop(zone,targetSt){
-  if(READONLY_COLS.has(targetSt))return;
-  zone.classList.add('drop-zone');
-
-  zone.addEventListener('dragover',e=>{
-    if(!dragItem)return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect='move';
-    document.querySelectorAll('.drop-zone.drag-over').forEach(z=>z.classList.remove('drag-over'));
-    zone.classList.add('drag-over');
-  });
-
-  zone.addEventListener('dragleave',e=>{
-    if(!zone.contains(e.relatedTarget))zone.classList.remove('drag-over');
-  });
-
-  zone.addEventListener('drop',async e=>{
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    if(!dragItem)return;
-    const {item,person}=dragItem;
-    dragItem=null;
-    const newLabel=COL_TO_STATUS[targetSt];
-    if(!newLabel)return;
-    const mySub=item.subs.find(s=>s.resp===person);
-    if(!mySub){toast('Subitem não encontrado',true);return;}
-    if(mySub.status===newLabel)return; // já está nesse status
-    await mutSubStatus(mySub,newLabel);
-  });
-}
+function setupDrop(){} // não precisa mais — tudo no mouseup do drag
 
 // ─── RENDER ───────────────────────────────────────────────────────────
 function sortItems(items,person){
