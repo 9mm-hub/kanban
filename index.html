@@ -325,7 +325,18 @@ function buildCard(item,person){
   });
   return card;
 }
-async function load(bId){document.getElementById('loading').style.display='flex';document.getElementById('board').style.display='none';try{const[schema]=await Promise.all([fetchSchema(bId),fetchUsers(),loadSubAdmins()]);await loadFilter();const raw=await fetchItems(bId);allItems=processItems(raw,schema);if(isAdmin){populateFilter();document.getElementById('fp-wrap').style.display='block';}if(isMainAdmin)document.getElementById('btn-access').style.display='inline-flex';document.getElementById('loading').style.display='none';document.getElementById('board').style.display='flex';render();}catch(e){document.getElementById('loading').innerHTML=`<span style="color:#ef5350">Erro: ${e.message}</span>`;console.error(e);}}
+async function load(bId){document.getElementById('loading').style.display='flex';document.getElementById('board').style.display='none';try{const[schema]=await Promise.all([fetchSchema(bId),fetchUsers(),loadSubAdmins()]);await loadFilter();const raw=await fetchItems(bId);allItems=processItems(raw,schema);if(isAdmin){
+  populateFilter();
+  document.getElementById('fp-wrap').style.display='block';
+  if(!document.getElementById('btn-save-view')){
+    const fpWrap=document.getElementById('fp-wrap');
+    const btnS=document.createElement('button');btnS.className='hbtn';btnS.id='btn-save-view';btnS.title='Salvar vista';btnS.textContent='💾';
+    const btnR=document.createElement('button');btnR.className='hbtn';btnR.id='btn-restore-view';btnR.title='Restaurar vista salva';btnR.textContent='↩';
+    fpWrap.after(btnR);fpWrap.after(btnS);
+    btnS.addEventListener('click',saveView);
+    btnR.addEventListener('click',restoreView);
+  }
+}if(isMainAdmin)document.getElementById('btn-access').style.display='inline-flex';document.getElementById('loading').style.display='none';document.getElementById('board').style.display='flex';render();}catch(e){document.getElementById('loading').innerHTML=`<span style="color:#ef5350">Erro: ${e.message}</span>`;console.error(e);}}
 const fpBtn=document.getElementById('fp-btn'),fpDd=document.getElementById('fp-dd');
 fpBtn.addEventListener('click',e=>{e.stopPropagation();fpDd.classList.toggle('open');});
 document.addEventListener('click',e=>{if(!fpDd.contains(e.target)&&e.target!==fpBtn)fpDd.classList.remove('open');if(!e.target.closest('.sst'))document.querySelectorAll('.stdd.open').forEach(d=>d.classList.remove('open'));});
@@ -335,7 +346,7 @@ document.getElementById('btn-access').addEventListener('click',openAccess);
 document.getElementById('btn-save-access').addEventListener('click',async()=>{subAdmins=[...document.querySelectorAll('#access-list input:checked')].map(c=>c.dataset.uid).filter(Boolean);await saveSubAdmins();document.getElementById('access-panel').classList.remove('open');toast('Acesso guardado!');const uid=String(Object.keys(userNameById).find(id=>userNameById[id]===currentUserName)||'');isAdmin=isMainAdmin||subAdmins.includes(uid);if(isAdmin){populateFilter();document.getElementById('fp-wrap').style.display='block';}render();});
 document.getElementById('btn-close-access').addEventListener('click',()=>document.getElementById('access-panel').classList.remove('open'));
 setInterval(()=>{if(boardId)load(boardId);},5*60*1000);
-monday.listen('context',async res=>{const bId=res.data.boardId||(res.data.boardIds&&res.data.boardIds[0]);boardId=bId;document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';currentUserName=(res.data.user?.name||'').trim();isMainAdmin=res.data.user?.isAdmin===true;await loadSubAdmins();const uid=String(res.data.user?.id||'');isAdmin=isMainAdmin||subAdmins.includes(uid);await load(bId);});
+monday.listen('context',async res=>{const bId=res.data.boardId||(res.data.boardIds&&res.data.boardIds[0]);boardId=bId;document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';currentUserName=(res.data.user?.name||'').trim();isMainAdmin=res.data.user?.isAdmin===true;await loadSubAdmins();const uid=String(res.data.user?.id||'');isAdmin=isMainAdmin||subAdmins.includes(uid);console.log('[KANBAN] user:',currentUserName,'isMainAdmin:',isMainAdmin,'isAdmin:',isAdmin,'uid:',uid,'subAdmins:',subAdmins);await load(bId);});
 } // fim initKanban
 
 </script>
