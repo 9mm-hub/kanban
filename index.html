@@ -102,7 +102,7 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
 .sprazo.sn{border-color:rgba(0,133,255,.5);color:#3d9bff;background:rgba(0,133,255,.08)}
-.sprazo input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:3;pointer-events:all;margin:0;padding:0;border:none;background:transparent}
+
 
 /* STATUS */
 .sst{position:relative;flex-shrink:0}
@@ -112,7 +112,7 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .stbadge.ea{background:var(--and-bg);border-color:var(--and-border);color:var(--and-text)}
 .stbadge.pa{background:var(--pau-bg);border-color:var(--pau-border);color:var(--pau-text)}
 .stbadge.co{background:var(--conc-bg);border-color:var(--conc-border);color:var(--conc-text)}
-.stdd{position:fixed;top:calc(100% + 3px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none;min-width:140px;overflow:hidden}
+.stdd{position:fixed;top:0;left:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none;min-width:140px;overflow:hidden}
 .stdd.open{display:block}
 .stdd-item{padding:7px 11px;font-size:11px;color:var(--text-dim);cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .1s}
 .stdd-item:hover{background:var(--border);color:var(--text)}
@@ -361,8 +361,8 @@ function render(){
       const col=document.createElement('div');col.className='col';col.dataset.s=st;
       col.innerHTML=`<div class="col-hdr"><div class="col-dot"></div><div class="col-title">${st}</div><div class="col-count">${pItems.length}</div></div>`;
       const body=document.createElement('div');body.className='col-body';
-      setupDrop(body,st,person);
       const scroll=document.createElement('div');scroll.className='col-scroll';
+      setupDrop(scroll,st,person);
       const grid=document.createElement('div');grid.className='cgrid';
       pItems.forEach(it=>grid.appendChild(buildCard(it,person)));
       scroll.appendChild(grid);body.appendChild(scroll);
@@ -405,12 +405,11 @@ function buildCard(item,person){
     const row=document.createElement('div');row.className='srow';
     // prazo
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
-    const prazo=document.createElement('label');prazo.className='sprazo '+prazoClass(dateVal);
-    prazo.title='Editar prazo';
-    const prazoTxt=document.createElement('span');prazoTxt.textContent='📅 '+prazoLabel(dateVal);prazoTxt.style.pointerEvents='none';
+    const prazo=document.createElement('div');prazo.className='sprazo '+prazoClass(dateVal);
+    prazo.title='Editar prazo';prazo.textContent='📅 '+prazoLabel(dateVal);
     const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;z-index:3;';
-    di.addEventListener('mousedown',e=>e.stopPropagation());
+    di.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px;';
+    document.body.appendChild(di);
     di.addEventListener('dragstart',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       e.stopPropagation();
@@ -418,8 +417,16 @@ function buildCard(item,person){
       if(!val)return;
       if(!sub.cronColId){toast('Coluna Cronograma não encontrada',true);console.error('cronColId null',sub);return;}
       await mutPrazo(sub,val);
+      prazo.textContent='📅 '+prazoLabel(val);
+      prazo.className='sprazo '+prazoClass(val);
     });
-    prazo.appendChild(prazoTxt);prazo.appendChild(di);row.appendChild(prazo);
+    prazo.addEventListener('mousedown',e=>e.stopPropagation());
+    prazo.addEventListener('dragstart',e=>e.stopPropagation());
+    prazo.addEventListener('click',e=>{
+      e.stopPropagation();
+      try{ di.showPicker(); } catch(err){ di.click(); }
+    });
+    row.appendChild(prazo);
     // status
     const stWrap=document.createElement('div');stWrap.className='sst';
     const badge=document.createElement('div');badge.className=`stbadge ${stCls(sub.status)}`;badge.textContent=sub.status||'Em Pauta';
