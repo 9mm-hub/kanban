@@ -128,108 +128,32 @@ body {
 #btn-refresh.spinning { animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── BOARD — layout tabela ── */
 #board-wrap {
-  flex: 1;
-  overflow: auto;
-  padding: 0 0 16px 0;
+  flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; padding: 12px 16px; gap: 12px; align-items: flex-start;
 }
-#board-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
-#board-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-/* tabela */
-#board-table {
-  display: grid;
-  /* col pessoa + 3 status */
-  grid-template-columns: 140px repeat(3, 1fr);
-  min-width: 900px;
-}
-
-/* header da tabela */
-.tbl-head {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-.tbl-head-person {
-  padding: 10px 14px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.tbl-head-status {
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  border-left: 1px solid var(--border);
-}
-
+#board-wrap::-webkit-scrollbar { height: 4px; }
+#board-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.col { width: 460px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; max-height: 100%; }
+.col-header { display: flex; align-items: center; gap: 7px; padding: 0 2px 2px; flex-shrink: 0; }
 .col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .col-title { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; flex: 1; }
-.col-count {
-  font-size: 10px; color: var(--text-muted);
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 1px 6px; font-weight: 600;
-}
-
-.tbl-head-status[data-status="Em Pauta"] .col-dot { background: var(--st-pauta-dot); }
-.tbl-head-status[data-status="Em Pauta"] .col-title { color: var(--st-pauta-text); }
-.tbl-head-status[data-status="Em Andamento"] .col-dot { background: var(--st-andamento-dot); }
-.tbl-head-status[data-status="Em Andamento"] .col-title { color: var(--st-andamento-text); }
-.tbl-head-status[data-status="Concluído"] .col-dot { background: var(--st-concluido-dot); }
-.tbl-head-status[data-status="Concluído"] .col-title { color: var(--st-concluido-text); }
-
-/* linha por pessoa */
-.tbl-row {
-  display: contents;
-}
-
-.tbl-person-cell {
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  position: sticky;
-  left: 0;
-  z-index: 5;
-}
-
-.person-av {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: #fff;
-  flex-shrink: 0; overflow: hidden;
-}
+.col-count { font-size: 10px; color: var(--text-muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1px 6px; font-weight: 600; }
+.col[data-status="Em Pauta"] .col-dot { background: var(--st-pauta-dot); }
+.col[data-status="Em Pauta"] .col-title { color: var(--st-pauta-text); }
+.col[data-status="Em Andamento"] .col-dot { background: var(--st-andamento-dot); }
+.col[data-status="Em Andamento"] .col-title { color: var(--st-andamento-text); }
+.col[data-status="Concluído"] .col-dot { background: var(--st-concluido-dot); }
+.col[data-status="Concluído"] .col-title { color: var(--st-concluido-text); }
+.col-body { overflow-y: auto; padding-bottom: 8px; flex: 1; min-height: 60px; }
+.col-body::-webkit-scrollbar { width: 3px; }
+.col-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.person-section { margin-bottom: 12px; }
+.person-label { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; padding: 0 2px; }
+.person-av { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; flex-shrink: 0; overflow: hidden; }
 .person-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.person-name-lbl { font-size: 10px; font-weight: 600; color: var(--text-dim); text-align: center; word-break: break-word; }
-.person-count-lbl { font-size: 9px; color: var(--text-muted); }
-
-.tbl-status-cell {
-  padding: 10px;
-  border-left: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  min-height: 80px;
-}
-
-.tbl-status-cell.drag-active {
-  background: rgba(108,95,213,.07);
-  outline: 1px dashed rgba(108,95,213,.4);
-}
-
-/* grid 2 colunas dentro de cada célula */
-.cards-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
+.person-name-lbl { font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.person-count-lbl { font-size: 10px; color: var(--text-muted); }
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 
 /* ── CARD ── */
 .card {
@@ -447,9 +371,7 @@ a.card-briefing:hover { color: var(--accent); border-left-color: var(--accent); 
 </div>
 
 <div id="loading"><div class="spinner"></div><span>Carregando...</span></div>
-<div id="board-wrap" style="display:none">
-  <div id="board-table"></div>
-</div>
+<div id="board-wrap" style="display:none"></div>
 <div id="toast"></div>
 <div id="drag-ghost"></div>
 
@@ -683,10 +605,10 @@ function initApp(monday) {
     }
   });
 
-  function setupDrop(zone, targetStatus, person){
+  function setupDrop(zone, targetStatus){
     zone.addEventListener('dragover',e=>{
       if(!dragItemData)return; e.preventDefault();
-      document.querySelectorAll('.tbl-status-cell').forEach(z=>z.classList.remove('drag-active'));
+      document.querySelectorAll('.col-drop-zone').forEach(z=>z.classList.remove('drag-active'));
       zone.classList.add('drag-active');
     });
     zone.addEventListener('dragleave',()=>zone.classList.remove('drag-active'));
@@ -700,61 +622,28 @@ function initApp(monday) {
 
   /* ══ RENDER ══ */
   function render(){
-    const tbl = document.getElementById('board-table');
-    tbl.innerHTML = '';
-
-    // conta totais por status para o header
-    const totals = {};
-    STATUS_COLS.forEach(s => totals[s] = 0);
-    allItems.forEach(it => { if(totals[it.kanbanStatus]!==undefined) totals[it.kanbanStatus]++; });
-
-    // ── HEADER ──
-    // célula vazia canto
-    const corner = document.createElement('div');
-    corner.className = 'tbl-head';
-    corner.innerHTML = '<div class="tbl-head-person"></div>';
-    tbl.appendChild(corner);
-
+    const wrap = document.getElementById('board-wrap');
+    wrap.innerHTML = '';
+    const showPeople = isAdmin ? (selPersons.length ? selPersons : allPeople) : [currentUserName];
     STATUS_COLS.forEach(status => {
-      const h = document.createElement('div');
-      h.className = 'tbl-head tbl-head-status';
-      h.dataset.status = status;
-      h.innerHTML = `<div class="col-dot"></div><div class="col-title">${status}</div><div class="col-count">${totals[status]||0}</div>`;
-      tbl.appendChild(h);
-    });
-
-    // ── LINHAS POR PESSOA ──
-    const showPeople=isAdmin?(selPersons.length?selPersons:allPeople):[currentUserName];
-    showPeople.forEach(person => {
-      // célula de pessoa
-      const pc = document.createElement('div');
-      pc.className = 'tbl-person-cell';
-      const av = makeAv(person, 32, 'person-av');
-      const nm = document.createElement('div'); nm.className = 'person-name-lbl'; nm.textContent = person.split(' ')[0];
-      const totalJobs = allItems.filter(it => it.subitems.some(s => s.resp === person)).length;
-      const ct = document.createElement('div'); ct.className = 'person-count-lbl'; ct.textContent = totalJobs + ' job' + (totalJobs!==1?'s':'');
-      pc.appendChild(av); pc.appendChild(nm); pc.appendChild(ct);
-      tbl.appendChild(pc);
-
-      // células de status
-      STATUS_COLS.forEach(status => {
-        const cell = document.createElement('div');
-        cell.className = 'tbl-status-cell';
-        setupDrop(cell, status, person);
-
-        const items = sortItems(
-          allItems.filter(it => it.kanbanStatus === status && it.subitems.some(s => s.resp === person)),
-          person
-        );
-
-        if(items.length) {
-          const grid = document.createElement('div'); grid.className = 'cards-grid';
-          items.forEach(it => grid.appendChild(buildCard(it, person)));
-          cell.appendChild(grid);
-        }
-
-        tbl.appendChild(cell);
+      const totalInStatus = allItems.filter(it => it.kanbanStatus===status && it.subitems.some(s=>showPeople.includes(s.resp))).length;
+      const col = document.createElement('div'); col.className='col'; col.dataset.status=status;
+      col.innerHTML = `<div class="col-header"><div class="col-dot"></div><div class="col-title">${status}</div><div class="col-count">${totalInStatus}</div></div>`;
+      const drop = document.createElement('div'); drop.className='col-drop-zone col-body'; setupDrop(drop, status);
+      showPeople.forEach(person => {
+        const pItems = sortItems(allItems.filter(it => it.kanbanStatus===status && it.subitems.some(s=>s.resp===person)), person);
+        if(!pItems.length) return;
+        const sec = document.createElement('div'); sec.className='person-section';
+        const lbl = document.createElement('div'); lbl.className='person-label';
+        lbl.appendChild(makeAv(person, 20, 'person-av'));
+        const nm = document.createElement('span'); nm.className='person-name-lbl'; nm.textContent=person.split(' ')[0];
+        const ct = document.createElement('span'); ct.className='person-count-lbl'; ct.textContent=` ${pItems.length} job${pItems.length>1?'s':''}`;
+        lbl.appendChild(nm); lbl.appendChild(ct); sec.appendChild(lbl);
+        const grid = document.createElement('div'); grid.className='cards-grid';
+        pItems.forEach(it => grid.appendChild(buildCard(it, person)));
+        sec.appendChild(grid); drop.appendChild(sec);
       });
+      col.appendChild(drop); wrap.appendChild(col);
     });
   }
 
@@ -768,8 +657,8 @@ function initApp(monday) {
     });
   }
 
-  function buildCard(item, personFilter){
-    const subs=item.subitems.filter(s=>s.resp===personFilter);
+  function buildCard(item, person){
+    const subs=item.subitems.filter(s=>s.resp===person);
     const card=document.createElement('div');
     card.className='card'; card.draggable=true;
     setupDrag(card,item);
