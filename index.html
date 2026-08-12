@@ -880,16 +880,8 @@ function initApp(monday) {
     currentBoardId=bId;
     const boardName=res.data.boardName||'Kanban';
     document.getElementById('hdr-board').textContent=boardName;
-    currentUserName = res.data.user?.name||'';
-    isAdmin = currentUserName === MAIKO_NAME;
-
-    // define quem é visível
-    if(isAdmin){
-      isAdmin=true;
-    } else {
-      isAdmin=false;
-    }
-
+    currentUserName = (res.data.user?.name||'').trim();
+    isAdmin = ADMINS.includes(currentUserName);
     await load(bId);
   });
 
