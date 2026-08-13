@@ -511,19 +511,16 @@ function buildCard(item,person){
   const sub=subs[0];
 
   const card=document.createElement('div');card.className='card';
-  setupDrag(card,item,person);
-
-  // click no card abre item card
-  // click só no título abre o subitem — não no card inteiro
-  // isso evita conflito com o drag handle
 
   // ── título + drag handle ──
   const top=document.createElement('div');top.className='card-top';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
-  // TESTE: click desativado para isolar drag
   const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   top.appendChild(title);top.appendChild(dh);card.appendChild(top);
+
+  // setupDrag DEPOIS do handle estar no DOM
+  setupDrag(card,item,person);
 
   // ── briefing ──
   const hasBrief=!!(sub?.briefing||item.briefing);
