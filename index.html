@@ -101,14 +101,20 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 /* PRAZO */
 .sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
-/* Badge de prazo — botão clicável */
-.prazo-btn{display:inline-flex;align-items:center;flex-shrink:0;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;height:22px;padding:0 7px;font-size:10px;font-weight:500;color:var(--text-dim);white-space:nowrap;cursor:pointer;font-family:inherit;transition:border-color .15s,background .15s,color .15s;line-height:1;}
-.prazo-btn:hover{border-color:var(--accent);color:var(--accent);}
-.prazo-btn.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08);color:#ef5350;}
-.prazo-btn.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08);color:#ffb900;}
-.prazo-btn.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08);color:#3d9bff;}
-/* Input de data — fora do fluxo mas renderizável (showPicker exige isso) */
-.sprazo-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:none;padding:0;color-scheme:dark;}
+/* Badge de prazo — wrapper relativo com label sobreposto */
+.prazo-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;height:22px;border-radius:4px;border:1px solid var(--border2);background:var(--surface3);transition:border-color .15s,background .15s;cursor:pointer;}
+.prazo-wrap:hover{border-color:var(--accent);}
+.prazo-wrap.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08);}
+.prazo-wrap.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08);}
+.prazo-wrap.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08);}
+/* Label no fluxo — dá a largura ao wrapper */
+.prazo-label{display:flex;align-items:center;padding:0 7px;font-size:10px;font-weight:500;white-space:nowrap;color:var(--text-dim);pointer-events:none;line-height:1;}
+.prazo-wrap:hover .prazo-label{color:var(--accent);}
+.prazo-wrap.od .prazo-label{color:#ef5350;}
+.prazo-wrap.td .prazo-label{color:#ffb900;}
+.prazo-wrap.sn .prazo-label{color:#3d9bff;}
+/* Input absoluto cobrindo o wrapper inteiro — transparente mas clicável */
+.sprazo-input{position:absolute;inset:0;width:100%;height:100%;opacity:0.01;cursor:pointer;border:none;background:none;color-scheme:dark;font-size:10px;}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
@@ -534,13 +540,13 @@ function buildCard(item,person){
   let _cardClickOk=false;
   card.addEventListener('mousedown',e=>{
     // só arma o clique se não for em elemento interativo
-    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-btn,.sprazo-input,.card-brief');
+    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-wrap,.sprazo-input,.card-brief');
     _cardClickOk=!skip;
   });
   card.addEventListener('click',e=>{
     if(!_cardClickOk)return;
     if(card.dataset.wasDragged)return;
-    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-btn,.sprazo-input,.card-brief');
+    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-wrap,.sprazo-input,.card-brief');
     if(skip)return;
     if(sub){monday.execute('openItemCard',{itemId:parseInt(sub.subId)});}
     else{monday.execute('openItemCard',{itemId:parseInt(item.id)});}
@@ -581,29 +587,32 @@ function buildCard(item,person){
 
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
 
-    // Input de data escondido — aberto via showPicker() no clique do botão
+    // ── prazo: wrapper com label visível + input real transparente por cima ──
+    const prazoWrap=document.createElement('div');
+    const pCls=prazoClass(dateVal);
+    prazoWrap.className='prazo-wrap'+(pCls?' '+pCls:'');
+
+    const prazoLabel_el=document.createElement('div');
+    prazoLabel_el.className='prazo-label';
+    prazoLabel_el.textContent='📅 '+prazoLabel(dateVal);
+
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;di.className='sprazo-input';
+    // largura do wrapper = largura do label + padding
+    // o input é position:relative e ocupa 100% do wrapper
+    di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      prazoBtn.textContent='📅 '+prazoLabel(val);
-      prazoBtn.className='prazo-btn '+(prazoClass(val)||'');
+      prazoLabel_el.textContent='📅 '+prazoLabel(val);
+      const nc=prazoClass(val);
+      prazoWrap.className='prazo-wrap'+(nc?' '+nc:'');
       await mutPrazo(sub,val);
     });
-    row.appendChild(di);
 
-    // Botão visível de prazo
-    const prazoBtn=document.createElement('button');
-    prazoBtn.className='prazo-btn '+(prazoClass(dateVal)||'');
-    prazoBtn.textContent='📅 '+prazoLabel(dateVal);
-    prazoBtn.title='Editar prazo';
-    prazoBtn.addEventListener('mousedown',e=>e.stopPropagation());
-    prazoBtn.addEventListener('click',e=>{
-      e.stopPropagation();
-      try{di.showPicker();}catch(_){di.click();}
-    });
-    row.appendChild(prazoBtn);
+    prazoWrap.appendChild(prazoLabel_el);
+    prazoWrap.appendChild(di);
+    row.appendChild(prazoWrap);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
