@@ -80,7 +80,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 
 /* CARD */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:default;transition:border-color .15s,box-shadow .15s,opacity .15s;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,opacity .15s;min-width:0}
 .drag-handle{color:var(--text-muted);cursor:grab;font-size:14px;line-height:1;padding:0 4px 0 0;flex-shrink:0;user-select:none;opacity:.5}
 .drag-handle:hover{opacity:1;color:var(--text-dim)}
 .card.dragging{opacity:.35}
@@ -107,8 +107,8 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .prazo-btn.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08);color:#ef5350;}
 .prazo-btn.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08);color:#ffb900;}
 .prazo-btn.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08);color:#3d9bff;}
-/* Input de data escondido — ativado via showPicker() */
-.sprazo-input{position:absolute;width:0;height:0;opacity:0;pointer-events:none;border:none;padding:0;visibility:hidden;}
+/* Input de data — fora do fluxo mas renderizável (showPicker exige isso) */
+.sprazo-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:none;padding:0;color-scheme:dark;}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
@@ -550,8 +550,6 @@ function buildCard(item,person){
   const top=document.createElement('div');top.className='card-top';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
-  // cursor pointer no título indica clicabilidade
-  title.style.cursor='pointer';
   const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   top.appendChild(title);top.appendChild(dh);card.appendChild(top);
 
