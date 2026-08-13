@@ -377,7 +377,10 @@ function setupDrag(cardEl,item,person){
 
   handle.addEventListener('mousedown',e=>{
     if(e.button!==0)return;
-    e.preventDefault(); // evita seleção de texto
+    // não iniciar drag se clicou num botão, link ou badge
+    if(e.target.closest('button')||e.target.closest('a')||e.target.closest('.sprazo')||e.target.closest('.stdd'))return;
+    e.preventDefault();
+    e.stopPropagation(); // impede panning do board
 
     const startX=e.clientX,startY=e.clientY;
     let dragging=false;
@@ -448,9 +451,6 @@ function sortItems(items,person){
 }
 
 function render(){
-  // limpar inputs de data soltos
-  document.querySelectorAll('input[data-prazo-orphan]').forEach(el=>el.remove());
-
   const board=document.getElementById('board');board.innerHTML='';
   const showPeople=isAdmin?(selPersons.length?selPersons:allPeople):[currentUserName];
 
@@ -529,29 +529,32 @@ function buildCard(item,person){
     // ── linha inferior: prazo | status | espaço | ↗ ──
     const row=document.createElement('div');row.className='srow';
 
-    // PRAZO — input date real, chamado via showPicker
+    // PRAZO — label + input visível (opacity:0) dentro do card
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
-    const prazo=document.createElement('div');prazo.className='sprazo '+prazoClass(dateVal);
-    prazo.title='Editar prazo';prazo.textContent='📅 '+prazoLabel(dateVal);
+    const prazoLbl=document.createElement('label');
+    prazoLbl.className='sprazo '+prazoClass(dateVal);
+    prazoLbl.title='Editar prazo';
+    prazoLbl.style.cssText='position:relative;display:flex;align-items:center;gap:2px;overflow:hidden;';
+
+    const prazoSpan=document.createElement('span');
+    prazoSpan.textContent='📅 '+prazoLabel(dateVal);
+    prazoSpan.style.pointerEvents='none';
 
     const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.setAttribute('data-prazo-orphan','1');
-    di.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px;pointer-events:none;';
-    document.body.appendChild(di);
+    di.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;background:transparent;';
 
+    di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
-      if(!sub.cronColId){toast('cronColId null — veja console',true);console.error('cronColId null',sub);return;}
+      if(!sub.cronColId){toast('cronColId null',true);console.error('cronColId null',sub);return;}
+      prazoSpan.textContent='📅 '+prazoLabel(val);
+      prazoLbl.className='sprazo '+prazoClass(val);
       await mutPrazo(sub,val);
     });
 
-    prazo.addEventListener('dragstart',e=>e.stopPropagation());
-    prazo.addEventListener('mousedown',e=>e.stopPropagation());
-    prazo.addEventListener('click',e=>{
-      e.stopPropagation();
-      try{di.showPicker();}catch(_){di.click();}
-    });
-    row.appendChild(prazo);
+    prazoLbl.appendChild(prazoSpan);
+    prazoLbl.appendChild(di);
+    row.appendChild(prazoLbl);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
@@ -655,7 +658,6 @@ async function load(bId){
   document.getElementById('board').style.display='none';
   // limpar dropdowns e inputs soltos de render anterior
   document.querySelectorAll('.stdd').forEach(el=>el.remove());
-  document.querySelectorAll('input[data-prazo-orphan]').forEach(el=>el.remove());
   try{
     const[schema]=await Promise.all([fetchSchema(bId),fetchUsers(),loadSubAdmins()]);
     await loadFilter();
@@ -711,9 +713,13 @@ setInterval(()=>{if(boardId)load(boardId);},5*60*1000);
 const boardEl=document.getElementById('board');
 let isPanning=false,panX=0,panY=0,panSL=0,panST=0;
 boardEl.addEventListener('mousedown',e=>{
+  // só panar se clicar no fundo — não em cards nem handles
+  if(e.target.closest('.card'))return;
   if(e.target!==boardEl&&!e.target.classList.contains('pkanban')
+    &&!e.target.classList.contains('pkanban-hdr')
     &&!e.target.classList.contains('pkanban-cols')&&!e.target.classList.contains('col')
-    &&!e.target.classList.contains('col-body')&&!e.target.classList.contains('col-scroll'))return;
+    &&!e.target.classList.contains('col-body')&&!e.target.classList.contains('col-scroll')
+    &&!e.target.classList.contains('col-hdr'))return;
   isPanning=true;panX=e.clientX;panY=e.clientY;panSL=boardEl.scrollLeft;panST=boardEl.scrollTop;boardEl.style.cursor='grabbing';
 });
 document.addEventListener('mousemove',e=>{if(!isPanning)return;boardEl.scrollLeft=panSL-(e.clientX-panX);boardEl.scrollTop=panST-(e.clientY-panY);});
