@@ -554,30 +554,31 @@ function buildCard(item,person){
 
     // PRAZO — label + input visível (opacity:0) dentro do card
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
-    const prazoLbl=document.createElement('label');
-    prazoLbl.className='sprazo '+prazoClass(dateVal);
-    prazoLbl.title='Editar prazo';
-    prazoLbl.style.cssText='position:relative;display:inline-flex;align-items:center;cursor:pointer;overflow:hidden;';
+    const prazoDiv=document.createElement('div');
+    prazoDiv.className='sprazo '+prazoClass(dateVal);
+    prazoDiv.title='Editar prazo';
+    prazoDiv.textContent='📅 '+prazoLabel(dateVal);
 
-    const prazoSpan=document.createElement('span');
-    prazoSpan.style.cssText='display:flex;align-items:center;gap:2px;pointer-events:none;white-space:nowrap;position:relative;z-index:1;';
-    prazoSpan.textContent='📅 '+prazoLabel(dateVal);
+    const di=document.createElement('input');
+    di.type='date';di.value=dateVal;
+    di.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px;';
+    document.body.appendChild(di);
 
-    const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0;box-sizing:border-box;z-index:2;';
-
-    di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);console.error('cronColId null',sub);return;}
-      prazoSpan.textContent='📅 '+prazoLabel(val);
-      prazoLbl.className='sprazo '+prazoClass(val);
+      prazoDiv.textContent='📅 '+prazoLabel(val);
+      prazoDiv.className='sprazo '+prazoClass(val);
       await mutPrazo(sub,val);
     });
 
-    prazoLbl.appendChild(prazoSpan);
-    prazoLbl.appendChild(di);
-    row.appendChild(prazoLbl);
+    prazoDiv.addEventListener('mousedown',e=>e.stopPropagation());
+    prazoDiv.addEventListener('click',e=>{
+      e.stopPropagation();
+      try{ di.showPicker(); }catch(err){ di.click(); }
+    });
+
+    row.appendChild(prazoDiv);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
