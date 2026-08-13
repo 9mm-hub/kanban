@@ -557,21 +557,33 @@ function buildCard(item,person){
     // ── linha inferior: prazo | status | espaço | ↗ ──
     const row=document.createElement('div');row.className='srow';
 
-    // PRAZO — label + input visível (opacity:0) dentro do card
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
-    // input date estilizado como badge — sem truques, o input É o badge
+
+    // input escondido para capturar a data — showPicker() funciona neste contexto
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
-    di.className='sprazo-input '+prazoClass(dateVal);
-    di.title='Editar prazo';
-    di.addEventListener('mousedown',e=>e.stopPropagation());
+    di.style.cssText='position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(di);
+
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      di.className='sprazo-input '+prazoClass(val);
+      prazoBtn.textContent='📅 '+prazoLabel(val);
+      prazoBtn.className='sprazo '+prazoClass(val);
       await mutPrazo(sub,val);
     });
-    row.appendChild(di);
+
+    // badge visível — clique em qualquer lugar chama showPicker
+    const prazoBtn=document.createElement('div');
+    prazoBtn.className='sprazo '+prazoClass(dateVal);
+    prazoBtn.textContent='📅 '+prazoLabel(dateVal);
+    prazoBtn.title='Editar prazo';
+    prazoBtn.addEventListener('mousedown',e=>e.stopPropagation());
+    prazoBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      di.showPicker();
+    });
+    row.appendChild(prazoBtn);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
