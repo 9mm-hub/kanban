@@ -381,77 +381,81 @@ async function mutSubStatus(sub,newLabel){
 
 // ─── DRAG (mousedown/mousemove/mouseup — igual ao pauta-timeline) ─────
 function setupDrag(cardEl,item,person){
-  // drag só pelo handle ⠿
   const handle=cardEl.querySelector('.drag-handle');
   if(!handle)return;
 
+  let dragging=false,startX=0,startY=0,ghost=null;
+
   handle.addEventListener('mousedown',e=>{
     if(e.button!==0)return;
-    e.preventDefault();
-    e.stopPropagation(); // impede panning do board e click do card
+    e.stopPropagation();
+    // NÃO chama preventDefault — isso bloqueia eventos de mouse no iframe
+    startX=e.clientX;startY=e.clientY;dragging=false;
 
-    const startX=e.clientX,startY=e.clientY;
-    let dragging=false;
-
-    // ghost que segue o cursor
-    const ghost=document.createElement('div');
+    ghost=document.createElement('div');
     ghost.style.cssText='position:fixed;pointer-events:none;z-index:9999;background:#23233a;color:#e4e4ea;border:1px solid #6c5fd5;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;white-space:nowrap;display:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;';
     ghost.textContent=item.name||'';
     document.body.appendChild(ghost);
 
-    function onMove(ev){
-      const dx=ev.clientX-startX,dy=ev.clientY-startY;
-      if(!dragging&&(Math.abs(dx)>6||Math.abs(dy)>6)){
-        dragging=true;
-        cardEl.classList.add('dragging');
-        handle.style.cursor='grabbing';
-      }
-      if(!dragging)return;
-      ghost.style.display='block';
-      ghost.style.left=(ev.clientX+14)+'px';
-      ghost.style.top=(ev.clientY+14)+'px';
-      // elementFromPoint ignorando o card arrastado e o ghost
-      cardEl.style.display='none';
-      ghost.style.display='none';
-      const el=document.elementFromPoint(ev.clientX,ev.clientY);
-      cardEl.style.display='';
-      ghost.style.display='block';
-      // highlight da drop zone sob o cursor
-      document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
-      const zone=el?.closest('.col-scroll');
-      const colSt=zone?.closest('.col')?.dataset?.s;
-      if(zone&&colSt&&!READONLY_COLS.has(colSt))zone.classList.add('drag-over');
-    }
-
-    async function onUp(ev){
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-      ghost.remove();
-      cardEl.classList.remove('dragging');
-      handle.style.cursor='grab';
-      document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
-
-      if(!dragging)return;
-
-      const el=document.elementFromPoint(ev.clientX,ev.clientY);
-      const zone=el?.closest('.col-scroll');
-      const targetSt=zone?.closest('.col')?.dataset?.s;
-      if(!targetSt||READONLY_COLS.has(targetSt))return;
-
-      const newLabel=COL_TO_STATUS[targetSt];
-      if(!newLabel)return;
-      const mySub=item.subs.find(s=>s.resp===person);
-      if(!mySub){toast('Subitem não encontrado',true);return;}
-      if(mySub.status===newLabel)return;
-      await mutSubStatus(mySub,newLabel);
-    }
-
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
   });
+
+  function onMove(ev){
+    const dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(!dragging&&(Math.abs(dx)>5||Math.abs(dy)>5)){
+      dragging=true;
+      cardEl.classList.add('dragging');
+      handle.style.cursor='grabbing';
+    }
+    if(!dragging)return;
+    ghost.style.display='block';
+    ghost.style.left=(ev.clientX+14)+'px';
+    ghost.style.top=(ev.clientY+14)+'px';
+
+    // detectar drop zone escondendo card e ghost momentaneamente
+    cardEl.style.visibility='hidden';
+    ghost.style.display='none';
+    const el=document.elementFromPoint(ev.clientX,ev.clientY);
+    cardEl.style.visibility='';
+    ghost.style.display='block';
+
+    document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
+    const zone=el?.closest('.col-scroll');
+    const colSt=zone?.closest('.col')?.dataset?.s;
+    if(zone&&colSt&&!READONLY_COLS.has(colSt))zone.classList.add('drag-over');
+  }
+
+  async function onUp(ev){
+    window.removeEventListener('mousemove',onMove);
+    window.removeEventListener('mouseup',onUp);
+    if(ghost){ghost.remove();ghost=null;}
+    cardEl.classList.remove('dragging');
+    cardEl.style.visibility='';
+    handle.style.cursor='grab';
+
+    document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
+    if(!dragging){dragging=false;return;}
+    dragging=false;
+
+    // detectar drop zone no mouseup
+    cardEl.style.visibility='hidden';
+    const el=document.elementFromPoint(ev.clientX,ev.clientY);
+    cardEl.style.visibility='';
+
+    const zone=el?.closest('.col-scroll');
+    const targetSt=zone?.closest('.col')?.dataset?.s;
+    if(!targetSt||READONLY_COLS.has(targetSt))return;
+    const newLabel=COL_TO_STATUS[targetSt];
+    if(!newLabel)return;
+    const mySub=item.subs.find(s=>s.resp===person);
+    if(!mySub){toast('Subitem não encontrado',true);return;}
+    if(mySub.status===newLabel)return;
+    await mutSubStatus(mySub,newLabel);
+  }
 }
 
-function setupDrop(){} // não precisa mais — tudo no mouseup do drag
+function setupDrop(){} // não precisa — tudo no mouseup do drag
 
 // ─── RENDER ───────────────────────────────────────────────────────────
 function sortItems(items,person){
@@ -549,14 +553,14 @@ function buildCard(item,person){
     const prazoLbl=document.createElement('label');
     prazoLbl.className='sprazo '+prazoClass(dateVal);
     prazoLbl.title='Editar prazo';
-    prazoLbl.style.cssText='position:relative;cursor:pointer;';
+    prazoLbl.style.cssText='position:relative;display:inline-flex;align-items:center;cursor:pointer;overflow:hidden;';
 
     const prazoSpan=document.createElement('span');
-    prazoSpan.style.cssText='display:flex;align-items:center;gap:2px;pointer-events:none;white-space:nowrap;';
+    prazoSpan.style.cssText='display:flex;align-items:center;gap:2px;pointer-events:none;white-space:nowrap;position:relative;z-index:1;';
     prazoSpan.textContent='📅 '+prazoLabel(dateVal);
 
     const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0;box-sizing:border-box;';
+    di.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0;box-sizing:border-box;z-index:2;';
 
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
