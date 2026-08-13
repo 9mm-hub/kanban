@@ -521,10 +521,7 @@ function buildCard(item,person){
   const top=document.createElement('div');top.className='card-top';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
-  title.style.cursor='pointer';
-  title.addEventListener('click',()=>{
-    if(sub)monday.execute('openItemCard',{itemId:parseInt(sub.subId)});
-  });
+  // TESTE: click desativado para isolar drag
   const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   top.appendChild(title);top.appendChild(dh);card.appendChild(top);
 
