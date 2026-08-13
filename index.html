@@ -345,23 +345,19 @@ async function mutPrazo(sub,newDate){
     toast('cronColId null — veja console',true);
     console.error('mutPrazo: cronColId null',sub);return;
   }
-  // tenta timeline {from,to}, se falhar tenta date {date}
   try{
+    // Timeline column: value must be a JSON string with from/to
     const val=JSON.stringify({from:newDate,to:newDate});
-    await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val)}){id}}`);
+    const q=`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val)}){id}}`;
+    console.log('mutPrazo query:',q);
+    const r=await monday.api(q);
+    console.log('mutPrazo result:',r);
+    if(r?.errors){throw new Error(r.errors[0]?.message||'GraphQL error');}
     sub.cron=newDate;sub._range=parseRange(newDate);
     toast('Prazo atualizado!');render();
-  }catch(e1){
-    // fallback: coluna tipo date simples
-    try{
-      const val2=JSON.stringify({date:newDate});
-      await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val2)}){id}}`);
-      sub.cron=newDate;sub._range=parseRange(newDate);
-      toast('Prazo atualizado!');render();
-    }catch(e2){
-      toast('Erro prazo: '+e2.message,true);
-      console.error('mutPrazo e1:',e1,'e2:',e2,'sub:',sub);
-    }
+  }catch(e){
+    toast('Erro prazo: '+e.message,true);
+    console.error('mutPrazo error:',e,'sub:',sub);
   }
 }
 
@@ -414,11 +410,17 @@ function setupDrag(cardEl,item,person){
       ghost.style.display='block';
       ghost.style.left=(ev.clientX+14)+'px';
       ghost.style.top=(ev.clientY+14)+'px';
+      // elementFromPoint ignorando o card arrastado e o ghost
+      cardEl.style.display='none';
+      ghost.style.display='none';
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      cardEl.style.display='';
+      ghost.style.display='block';
       // highlight da drop zone sob o cursor
       document.querySelectorAll('.col-scroll.drag-over').forEach(z=>z.classList.remove('drag-over'));
-      const el=document.elementFromPoint(ev.clientX,ev.clientY);
       const zone=el?.closest('.col-scroll');
-      if(zone&&!READONLY_COLS.has(zone.closest('.col')?.dataset?.s))zone.classList.add('drag-over');
+      const colSt=zone?.closest('.col')?.dataset?.s;
+      if(zone&&colSt&&!READONLY_COLS.has(colSt))zone.classList.add('drag-over');
     }
 
     async function onUp(ev){
@@ -514,10 +516,10 @@ function buildCard(item,person){
 
   // ── título + drag handle ──
   const top=document.createElement('div');top.className='card-top';
-  const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
-  top.appendChild(dh);top.appendChild(title);card.appendChild(top);
+  const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
+  top.appendChild(title);top.appendChild(dh);card.appendChild(top);
 
   // ── briefing ──
   const hasBrief=!!(sub?.briefing||item.briefing);
