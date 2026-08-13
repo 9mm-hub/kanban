@@ -80,7 +80,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 
 /* CARD */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,opacity .15s;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:default;transition:border-color .15s,box-shadow .15s,opacity .15s;min-width:0}
 .drag-handle{color:var(--text-muted);cursor:grab;font-size:14px;line-height:1;padding:0 4px 0 0;flex-shrink:0;user-select:none;opacity:.5}
 .drag-handle:hover{opacity:1;color:var(--text-dim)}
 .card.dragging{opacity:.35}
@@ -101,20 +101,14 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 /* PRAZO */
 .sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
-/* Badge de prazo — wrapper relativo com label sobreposto */
-.prazo-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;height:22px;border-radius:4px;border:1px solid var(--border2);background:var(--surface3);transition:border-color .15s,background .15s;cursor:pointer;}
-.prazo-wrap:hover{border-color:var(--accent);}
-.prazo-wrap.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08);}
-.prazo-wrap.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08);}
-.prazo-wrap.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08);}
-/* Label no fluxo — dá a largura ao wrapper */
-.prazo-label{display:flex;align-items:center;padding:0 7px;font-size:10px;font-weight:500;white-space:nowrap;color:var(--text-dim);pointer-events:none;line-height:1;}
-.prazo-wrap:hover .prazo-label{color:var(--accent);}
-.prazo-wrap.od .prazo-label{color:#ef5350;}
-.prazo-wrap.td .prazo-label{color:#ffb900;}
-.prazo-wrap.sn .prazo-label{color:#3d9bff;}
-/* Input absoluto cobrindo o wrapper inteiro — transparente mas clicável */
-.sprazo-input{position:absolute;inset:0;width:100%;height:100%;opacity:0.01;cursor:pointer;border:none;background:none;color-scheme:dark;font-size:10px;}
+.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 4px 2px 14px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;}
+.sprazo-input::-webkit-datetime-edit{color:transparent;}
+.sprazo-input::-webkit-datetime-edit-fields-wrapper{color:transparent;}
+.sprazo-input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;padding:0;}
+.sprazo-input::before{content:attr(data-label);color:var(--text-dim);font-size:10px;font-weight:500;pointer-events:none;white-space:nowrap;position:absolute;left:4px;top:50%;transform:translateY(-50%);}
+.sprazo-input.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08)}.sprazo-input.od::before{color:#ef5350;}
+.sprazo-input.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08)}.sprazo-input.td::before{color:#ffb900;}
+.sprazo-input.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08)}.sprazo-input.sn::before{color:#3d9bff;}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
@@ -456,9 +450,6 @@ function setupDrag(cardEl,item,person){
 
     document.querySelectorAll('.col.drag-over').forEach(z=>z.classList.remove('drag-over'));
     if(!dragging){dragging=false;return;}
-    // sinaliza que houve drag — bloqueia o click do card que vem depois do mouseup
-    cardEl.dataset.wasDragged='1';
-    setTimeout(()=>delete cardEl.dataset.wasDragged,100);
     dragging=false;
 
     // detectar drop zone no mouseup
@@ -536,26 +527,16 @@ function buildCard(item,person){
 
   const card=document.createElement('div');card.className='card';
 
-  // ── clique no card abre o subitem (com guarda contra drag e elementos interativos) ──
-  let _cardClickOk=false;
-  card.addEventListener('mousedown',e=>{
-    // só arma o clique se não for em elemento interativo
-    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-wrap,.sprazo-input,.card-brief');
-    _cardClickOk=!skip;
-  });
-  card.addEventListener('click',e=>{
-    if(!_cardClickOk)return;
-    if(card.dataset.wasDragged)return;
-    const skip=e.target.closest('.drag-handle,.cbtn,.stbadge,.stdd,.prazo-wrap,.sprazo-input,.card-brief');
-    if(skip)return;
-    if(sub){monday.execute('openItemCard',{itemId:parseInt(sub.subId)});}
-    else{monday.execute('openItemCard',{itemId:parseInt(item.id)});}
-  });
-
   // ── título + drag handle ──
   const top=document.createElement('div');top.className='card-top';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
+  title.style.cursor='pointer';
+  title.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(sub)monday.execute('openItemCard',{itemId:parseInt(sub.subId)});
+    else monday.execute('openItemCard',{itemId:parseInt(item.id)});
+  });
   const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   top.appendChild(title);top.appendChild(dh);card.appendChild(top);
 
@@ -577,6 +558,11 @@ function buildCard(item,person){
     tjrow.style.cssText='display:flex;align-items:center;gap:4px;min-width:0;';
     const tj=document.createElement('div');tj.className='sname';tj.style.flex='1';
     tj.textContent=sub.tipoJob||sub.name||'—';tj.title=tj.textContent;
+    tj.style.cursor='pointer';
+    tj.addEventListener('click',e=>{
+      e.stopPropagation();
+      monday.execute('openItemCard',{itemId:parseInt(sub.subId)});
+    });
     const btnU=document.createElement('button');btnU.className='cbtn';btnU.title='Atualizações';
     btnU.innerHTML='<svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M10 2C5.58 2 2 5.36 2 9.5c0 1.9.72 3.63 1.9 4.97L2.5 17.5l3.3-1.1A8.1 8.1 0 0010 17c4.42 0 8-3.36 8-7.5S14.42 2 10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
     btnU.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id),kind:'updates'});});
@@ -587,32 +573,22 @@ function buildCard(item,person){
 
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
 
-    // ── prazo: wrapper com label visível + input real transparente por cima ──
-    const prazoWrap=document.createElement('div');
-    const pCls=prazoClass(dateVal);
-    prazoWrap.className='prazo-wrap'+(pCls?' '+pCls:'');
-
-    const prazoLabel_el=document.createElement('div');
-    prazoLabel_el.className='prazo-label';
-    prazoLabel_el.textContent='📅 '+prazoLabel(dateVal);
-
+    // Input date visível estilizado como badge
+    // O texto nativo fica color:transparent, e data-label mostra o texto bonito via CSS
     const di=document.createElement('input');
-    di.type='date';di.value=dateVal;di.className='sprazo-input';
-    // largura do wrapper = largura do label + padding
-    // o input é position:relative e ocupa 100% do wrapper
+    di.type='date';di.value=dateVal;
+    di.className='sprazo-input '+prazoClass(dateVal);
+    di.dataset.label='📅 '+prazoLabel(dateVal);
+    di.title='Editar prazo';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      prazoLabel_el.textContent='📅 '+prazoLabel(val);
-      const nc=prazoClass(val);
-      prazoWrap.className='prazo-wrap'+(nc?' '+nc:'');
+      di.dataset.label='📅 '+prazoLabel(val);
+      di.className='sprazo-input '+prazoClass(val);
       await mutPrazo(sub,val);
     });
-
-    prazoWrap.appendChild(prazoLabel_el);
-    prazoWrap.appendChild(di);
-    row.appendChild(prazoWrap);
+    row.appendChild(di);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
