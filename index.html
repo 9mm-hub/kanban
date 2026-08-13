@@ -81,6 +81,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 
 /* CARD */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,opacity .15s;min-width:0}
+.drag-handle{color:var(--text-muted);cursor:grab;font-size:14px;line-height:1;padding:0 4px 0 0;flex-shrink:0;user-select:none;opacity:.5}
+.drag-handle:hover{opacity:1;color:var(--text-dim)}
+.card.dragging{opacity:.35}
 .card:hover{border-color:var(--border2);box-shadow:0 3px 12px rgba(0,0,0,.3)}
 .card.dragging{opacity:.35;cursor:grabbing}
 .card-top{display:flex;align-items:flex-start;gap:5px;min-width:0}
@@ -342,12 +345,24 @@ async function mutPrazo(sub,newDate){
     toast('cronColId null — veja console',true);
     console.error('mutPrazo: cronColId null',sub);return;
   }
+  // tenta timeline {from,to}, se falhar tenta date {date}
   try{
     const val=JSON.stringify({from:newDate,to:newDate});
     await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val)}){id}}`);
     sub.cron=newDate;sub._range=parseRange(newDate);
     toast('Prazo atualizado!');render();
-  }catch(e){toast('Erro ao atualizar prazo: '+e.message,true);console.error(e);}
+  }catch(e1){
+    // fallback: coluna tipo date simples
+    try{
+      const val2=JSON.stringify({date:newDate});
+      await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val2)}){id}}`);
+      sub.cron=newDate;sub._range=parseRange(newDate);
+      toast('Prazo atualizado!');render();
+    }catch(e2){
+      toast('Erro prazo: '+e2.message,true);
+      console.error('mutPrazo e1:',e1,'e2:',e2,'sub:',sub);
+    }
+  }
 }
 
 async function mutSubStatus(sub,newLabel){
@@ -370,17 +385,14 @@ async function mutSubStatus(sub,newLabel){
 
 // ─── DRAG (mousedown/mousemove/mouseup — igual ao pauta-timeline) ─────
 function setupDrag(cardEl,item,person){
-  // só arrasta pelo título do card
-  const handle=cardEl.querySelector('.card-top');
+  // drag só pelo handle ⠿
+  const handle=cardEl.querySelector('.drag-handle');
   if(!handle)return;
-  handle.style.cursor='grab';
 
   handle.addEventListener('mousedown',e=>{
     if(e.button!==0)return;
-    // não iniciar drag se clicou num botão, link ou badge
-    if(e.target.closest('button')||e.target.closest('a')||e.target.closest('.sprazo')||e.target.closest('.stdd'))return;
     e.preventDefault();
-    e.stopPropagation(); // impede panning do board
+    e.stopPropagation(); // impede panning do board e click do card
 
     const startX=e.clientX,startY=e.clientY;
     let dragging=false;
@@ -500,11 +512,12 @@ function buildCard(item,person){
     if(sub)monday.execute('openItemCard',{itemId:parseInt(sub.subId)});
   });
 
-  // ── título ──
+  // ── título + drag handle ──
   const top=document.createElement('div');top.className='card-top';
+  const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
-  top.appendChild(title);card.appendChild(top);
+  top.appendChild(dh);top.appendChild(title);card.appendChild(top);
 
   // ── briefing ──
   const hasBrief=!!(sub?.briefing||item.briefing);
@@ -534,14 +547,14 @@ function buildCard(item,person){
     const prazoLbl=document.createElement('label');
     prazoLbl.className='sprazo '+prazoClass(dateVal);
     prazoLbl.title='Editar prazo';
-    prazoLbl.style.cssText='position:relative;display:flex;align-items:center;gap:2px;overflow:hidden;';
+    prazoLbl.style.cssText='position:relative;cursor:pointer;';
 
     const prazoSpan=document.createElement('span');
+    prazoSpan.style.cssText='display:flex;align-items:center;gap:2px;pointer-events:none;white-space:nowrap;';
     prazoSpan.textContent='📅 '+prazoLabel(dateVal);
-    prazoSpan.style.pointerEvents='none';
 
     const di=document.createElement('input');di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;background:transparent;';
+    di.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0;box-sizing:border-box;';
 
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
