@@ -101,11 +101,14 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 /* PRAZO */
 .sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
-.sprazo-input{background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;}
-.sprazo-input::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:pointer;padding:0;margin:0;}
-.sprazo-input.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
-.sprazo-input.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
-.sprazo-input.sn{border-color:rgba(0,133,255,.5);color:#3d9bff;background:rgba(0,133,255,.08)}
+.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;min-width:60px;}
+.sprazo-input::-webkit-datetime-edit{color:transparent;}
+.sprazo-input::-webkit-datetime-edit-fields-wrapper{color:transparent;}
+.sprazo-input::-webkit-calendar-picker-indicator{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.sprazo-input::before{content:attr(data-label);color:var(--text-dim);font-size:10px;font-weight:500;pointer-events:none;white-space:nowrap;}
+.sprazo-input.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08)}.sprazo-input.od::before{color:#ef5350;}
+.sprazo-input.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08)}.sprazo-input.td::before{color:#ffb900;}
+.sprazo-input.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08)}.sprazo-input.sn::before{color:#3d9bff;}
 .sprazo:hover{border-color:var(--accent);color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
@@ -559,33 +562,22 @@ function buildCard(item,person){
 
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
 
-    // wrapper posicionado — contém o texto bonito E o input real por cima
-    const prazoWrap=document.createElement('div');
-    prazoWrap.className='sprazo '+prazoClass(dateVal);
-    prazoWrap.style.cssText='position:relative;overflow:hidden;';
-
-    // texto visível
-    const prazoTxt=document.createElement('span');
-    prazoTxt.textContent='📅 '+prazoLabel(dateVal);
-    prazoTxt.style.cssText='pointer-events:none;position:relative;z-index:1;';
-
-    // input real visível mas transparente, por cima do texto
-    // width:200% e text-indent:-9999px escondem o texto nativo do input
+    // Input date visível estilizado como badge
+    // O texto nativo fica color:transparent, e data-label mostra o texto bonito via CSS
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;inset:0;width:100%;height:100%;opacity:0.01;cursor:pointer;border:0;padding:0;margin:0;box-sizing:border-box;z-index:2;color:transparent;background:transparent;-webkit-appearance:none;appearance:none;';
+    di.className='sprazo-input '+prazoClass(dateVal);
+    di.dataset.label='📅 '+prazoLabel(dateVal);
+    di.title='Editar prazo';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      prazoTxt.textContent='📅 '+prazoLabel(val);
-      prazoWrap.className='sprazo '+prazoClass(val);
+      di.dataset.label='📅 '+prazoLabel(val);
+      di.className='sprazo-input '+prazoClass(val);
       await mutPrazo(sub,val);
     });
-
-    prazoWrap.appendChild(prazoTxt);
-    prazoWrap.appendChild(di);
-    row.appendChild(prazoWrap);
+    row.appendChild(di);
 
     // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
