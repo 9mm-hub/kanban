@@ -389,7 +389,6 @@ function setupDrag(cardEl,item,person){
   handle.addEventListener('mousedown',e=>{
     if(e.button!==0)return;
     e.stopPropagation();
-    // NÃO chama preventDefault — isso bloqueia eventos de mouse no iframe
     startX=e.clientX;startY=e.clientY;dragging=false;
 
     ghost=document.createElement('div');
@@ -400,6 +399,8 @@ function setupDrag(cardEl,item,person){
     window.addEventListener('mousemove',onMove);
     window.addEventListener('mouseup',onUp);
   });
+
+  handle.addEventListener('click',e=>e.stopPropagation());
 
   function onMove(ev){
     const dx=ev.clientX-startX,dy=ev.clientY-startY;
@@ -514,7 +515,7 @@ function buildCard(item,person){
 
   // click no card abre item card
   card.addEventListener('click',e=>{
-    if(e.target.closest('.cbtn')||e.target.closest('.stdd')||e.target.closest('.sprazo'))return;
+    if(e.target.closest('.cbtn')||e.target.closest('.stdd')||e.target.closest('.sprazo')||e.target.closest('.drag-handle'))return;
     if(sub)monday.execute('openItemCard',{itemId:parseInt(sub.subId)});
   });
 
