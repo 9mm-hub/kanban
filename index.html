@@ -573,7 +573,7 @@ function buildCard(item,person){
     // width:200% e text-indent:-9999px escondem o texto nativo do input
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
-    di.style.cssText='position:absolute;inset:0;width:100%;height:100%;opacity:0.01;cursor:pointer;border:0;padding:0;margin:0;box-sizing:border-box;z-index:2;color:transparent;background:transparent;';
+    di.style.cssText='position:absolute;inset:0;width:100%;height:100%;opacity:0.01;cursor:pointer;border:0;padding:0;margin:0;box-sizing:border-box;z-index:2;color:transparent;background:transparent;-webkit-appearance:none;appearance:none;';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
