@@ -73,7 +73,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .col[data-s="Concluídos Ontem"] .col-title{color:#00a85a}
 .col[data-s="Pausado"] .col-dot{background:var(--pau-dot)}
 .col[data-s="Pausado"] .col-title{color:var(--pau-text)}
-.col-body{display:flex;flex-direction:column;gap:7px;min-height:40px;border-radius:var(--r);padding:2px;overflow:visible}.col-scroll{max-height:calc(4 * 132px + 3 * 7px);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:7px}.col-scroll::-webkit-scrollbar{width:4px}.col-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.col-body{display:flex;flex-direction:column;gap:7px;min-height:80px;border-radius:var(--r);padding:2px;overflow:visible;flex:1}.col-scroll{max-height:calc(4 * 132px + 3 * 7px);min-height:80px;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:7px;flex:1}.col-scroll::-webkit-scrollbar{width:4px}.col-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .col.drag-over .col-body{background:rgba(108,95,213,.06);outline:1px dashed rgba(108,95,213,.35)}
 
 /* GRID 2 colunas dentro da col */
@@ -424,7 +424,12 @@ function setupDrag(cardEl,item,person){
     document.querySelectorAll('.col.drag-over').forEach(z=>z.classList.remove('drag-over'));
     const targetCol=el?.closest('.col');
     const colSt=targetCol?.dataset?.s;
-    if(targetCol&&colSt&&!READONLY_COLS.has(colSt))targetCol.classList.add('drag-over');
+    if(targetCol&&colSt&&!READONLY_COLS.has(colSt)){
+      targetCol.classList.add('drag-over');
+      ghost.textContent='→ '+(COL_TO_STATUS[colSt]||colSt);
+    } else {
+      ghost.textContent=item.name||'';
+    }
   }
 
   async function onUp(ev){
