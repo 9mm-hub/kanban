@@ -272,7 +272,8 @@ async function fetchSchema(bId){
   let cursor=null;
   do{
     const cp=cursor?`,cursor:"${cursor}"` :'';
-    const r=await api(`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{subitems{board{id columns{id title type}}}}}}}`);
+    // PATCH: limit reduzido de 20 → 5 para poupar complexidade GraphQL
+    const r=await api(`query{boards(ids:[${bId}]){items_page(limit:5${cp}){cursor items{subitems{board{id columns{id title type}}}}}}}`);
     const page=r.data.boards[0].items_page;
     for(const it of page.items){
       if(it.subitems?.length&&it.subitems[0].board?.columns?.length){
@@ -281,13 +282,14 @@ async function fetchSchema(bId){
     }
     if(schema.length)break;
     cursor=page.cursor||null;
-    if(cursor)await sleep(300);
+    // PATCH: sleep aumentado de 300 → 2000ms para não esgotar budget
+    if(cursor)await sleep(2000);
   }while(cursor);
   return schema;
 }
 
 async function fetchUsers(){
-  const r=await api('query{users{id name photo_thumb}}');
+  const r=await api('query{users(limit:100){id name photo_thumb}}');
   (r.data.users||[]).forEach(u=>{if(u.name){userNameById[String(u.id)]=u.name;if(u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;}});
 }
 
@@ -305,12 +307,14 @@ async function fetchItems(bId){
   let fetched=[],cursor=null;
   do{
     const cp=cursor?`,cursor:"${cursor}"` :'';
-    const q=`query{boards(ids:[${bId}]){items_page(limit:100${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;
+    // PATCH: limit reduzido de 100 → 20 para poupar complexidade GraphQL
+    const q=`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;
     let res;try{res=await api(q);}catch(e){break;}
     const page=res.data.boards[0].items_page;
     fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));
     cursor=page.cursor||null;
-    if(cursor)await sleep(200);
+    // PATCH: sleep aumentado de 200 → 1500ms para não esgotar budget
+    if(cursor)await sleep(1500);
   }while(cursor);
   return fetched;
 }
@@ -354,7 +358,6 @@ async function mutPrazo(sub,newDate){
     console.error('mutPrazo: cronColId null',sub);return;
   }
   try{
-    // Timeline column: value must be a JSON string with from/to
     const val=JSON.stringify({from:newDate,to:newDate});
     const q=`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.cronColId}",value:${JSON.stringify(val)}){id}}`;
     console.log('mutPrazo query:',q);
@@ -379,7 +382,6 @@ async function mutSubStatus(sub,newLabel){
     await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub.statusColId}",value:${JSON.stringify(val)}){id}}`);
     sub.status=newLabel;
     if(newLabel==='Concluído'){
-      // move o item pai para Concluídos Hoje visualmente
       const parent=allItems.find(it=>it.subs.includes(sub));
       if(parent&&!parent.ks.includes('Conclu'))parent.ks='Concluídos Hoje';
     }
@@ -387,7 +389,7 @@ async function mutSubStatus(sub,newLabel){
   }catch(e){toast('Erro ao atualizar status: '+e.message,true);console.error(e);}
 }
 
-// ─── DRAG (mousedown/mousemove/mouseup — igual ao pauta-timeline) ─────
+// ─── DRAG (mousedown/mousemove/mouseup) ──────────────────────────────
 function setupDrag(cardEl,item,person){
   const handle=cardEl.querySelector('.drag-handle');
   if(!handle)return;
@@ -422,7 +424,6 @@ function setupDrag(cardEl,item,person){
     ghost.style.left=(ev.clientX+14)+'px';
     ghost.style.top=(ev.clientY+14)+'px';
 
-    // detectar drop zone escondendo card e ghost momentaneamente
     cardEl.style.visibility='hidden';
     ghost.style.display='none';
     const el=document.elementFromPoint(ev.clientX,ev.clientY);
@@ -452,12 +453,10 @@ function setupDrag(cardEl,item,person){
     if(!dragging){dragging=false;return;}
     dragging=false;
 
-    // detectar drop zone no mouseup
     cardEl.style.visibility='hidden';
     const el=document.elementFromPoint(ev.clientX,ev.clientY);
     cardEl.style.visibility='';
 
-    // busca a coluna pelo elemento sob o cursor — pode ser col, col-scroll, col-body ou col-hdr
     const targetCol=el?.closest('.col');
     const targetSt=targetCol?.dataset?.s;
     console.log('drop targetSt:',targetSt,'el:',el?.className);
@@ -471,7 +470,7 @@ function setupDrag(cardEl,item,person){
   }
 }
 
-function setupDrop(){} // não precisa — tudo no mouseup do drag
+function setupDrop(){}
 
 // ─── RENDER ───────────────────────────────────────────────────────────
 function sortItems(items,person){
@@ -510,7 +509,7 @@ function render(){
 
       const body=document.createElement('div');body.className='col-body';
       const scroll=document.createElement('div');scroll.className='col-scroll';
-      setupDrop(scroll,st); // drop no scroll wrapper
+      setupDrop(scroll,st);
       const grid=document.createElement('div');grid.className='cgrid';
       pItems.forEach(it=>grid.appendChild(buildCard(it,person)));
       scroll.appendChild(grid);body.appendChild(scroll);
@@ -527,7 +526,6 @@ function buildCard(item,person){
 
   const card=document.createElement('div');card.className='card';
 
-  // ── título + drag handle ──
   const top=document.createElement('div');top.className='card-top';
   const title=document.createElement('div');title.className='card-title';
   title.textContent=item.name;title.title=item.name;
@@ -540,10 +538,8 @@ function buildCard(item,person){
   const dh=document.createElement('div');dh.className='drag-handle';dh.textContent='⠿';dh.title='Arrastar';
   top.appendChild(title);top.appendChild(dh);card.appendChild(top);
 
-  // setupDrag DEPOIS do handle estar no DOM
   setupDrag(card,item,person);
 
-  // ── briefing ──
   const hasBrief=!!(sub?.briefing||item.briefing);
   const briefUrl=sub?.briefing||item.briefing||'';
   const brief=document.createElement(hasBrief?'a':'div');
@@ -553,7 +549,6 @@ function buildCard(item,person){
   card.appendChild(brief);
 
   if(sub){
-    // ── tipo de job + 💬 ──
     const tjrow=document.createElement('div');
     tjrow.style.cssText='display:flex;align-items:center;gap:4px;min-width:0;';
     const tj=document.createElement('div');tj.className='sname';tj.style.flex='1';
@@ -568,13 +563,10 @@ function buildCard(item,person){
     btnU.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id),kind:'updates'});});
     tjrow.appendChild(tj);tjrow.appendChild(btnU);card.appendChild(tjrow);
 
-    // ── linha inferior: prazo | status | espaço | ↗ ──
     const row=document.createElement('div');row.className='srow';
 
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
 
-    // Input date visível estilizado como badge
-    // O texto nativo fica color:transparent, e data-label mostra o texto bonito via CSS
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
     di.className='sprazo-input '+prazoClass(dateVal);
@@ -590,11 +582,10 @@ function buildCard(item,person){
     });
     row.appendChild(di);
 
-    // STATUS badge + dropdown
     const stWrap=document.createElement('div');stWrap.className='sst';
     const badge=document.createElement('div');badge.className=`stbadge ${stCls(sub.status)}`;badge.textContent=sub.status||'Em pauta';
     const dd=document.createElement('div');dd.className='stdd';
-    document.body.appendChild(dd); // fora do card para não ser cortado
+    document.body.appendChild(dd);
 
     Object.entries(STATUS_META).forEach(([label,meta])=>{
       const opt=document.createElement('div');opt.className='stdd-item';
@@ -621,7 +612,6 @@ function buildCard(item,person){
     stWrap.appendChild(badge);row.appendChild(stWrap);
     const sp=document.createElement('div');sp.style.flex='1';row.appendChild(sp);
 
-    // ↗
     const btnO=document.createElement('button');btnO.className='cbtn';btnO.title='Abrir job';btnO.textContent='↗';
     btnO.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id)});});
     row.appendChild(btnO);
@@ -690,10 +680,12 @@ function openAccess(){
 async function load(bId){
   document.getElementById('loading').style.display='flex';
   document.getElementById('board').style.display='none';
-  // limpar dropdowns e inputs soltos de render anterior
   document.querySelectorAll('.stdd').forEach(el=>el.remove());
   try{
-    const[schema]=await Promise.all([fetchSchema(bId),fetchUsers(),loadSubAdmins()]);
+    // PATCH: sequencial em vez de Promise.all para não disparar queries em paralelo
+    await loadSubAdmins();
+    await fetchUsers();
+    const schema=await fetchSchema(bId);
     await loadFilter();
     const raw=await fetchItems(bId);
     allItems=processItems(raw,schema);
@@ -747,7 +739,6 @@ setInterval(()=>{if(boardId)load(boardId);},5*60*1000);
 const boardEl=document.getElementById('board');
 let isPanning=false,panX=0,panY=0,panSL=0,panST=0;
 boardEl.addEventListener('mousedown',e=>{
-  // só panar se clicar no fundo — não em cards nem handles
   if(e.target.closest('.card'))return;
   if(e.target!==boardEl&&!e.target.classList.contains('pkanban')
     &&!e.target.classList.contains('pkanban-hdr')
@@ -772,7 +763,6 @@ monday.listen('context',async res=>{
 });
 
 } // fim initKanban
-
 </script>
 </body>
 </html>
