@@ -101,11 +101,11 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 /* PRAZO */
 .sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
-.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 2px 1px 2px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;}
+.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 4px 1px 4px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;width:var(--prazo-w,72px);}
 .sprazo-input::-webkit-datetime-edit{color:transparent;}
 .sprazo-input::-webkit-datetime-edit-fields-wrapper{color:transparent;}
 .sprazo-input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;padding:0;}
-.sprazo-input::before{content:attr(data-label);color:var(--text-dim);font-size:10px;font-weight:500;pointer-events:none;white-space:nowrap;position:absolute;left:2px;top:50%;transform:translateY(-50%);}
+.sprazo-input::before{content:attr(data-label);color:var(--text-dim);font-size:10px;font-weight:500;pointer-events:none;white-space:nowrap;position:absolute;left:4px;top:50%;transform:translateY(-50%);}
 .sprazo-input.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08)}.sprazo-input.od::before{color:#ef5350;}
 .sprazo-input.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08)}.sprazo-input.td::before{color:#ffb900;}
 .sprazo-input.sn{border-color:rgba(0,133,255,.5);background:rgba(0,133,255,.08)}.sprazo-input.sn::before{color:#3d9bff;}
@@ -113,7 +113,6 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .sprazo.od{border-color:rgba(239,83,80,.5);color:#ef5350;background:rgba(239,83,80,.08)}
 .sprazo.td{border-color:rgba(255,185,0,.5);color:#ffb900;background:rgba(255,185,0,.08)}
 .sprazo.sn{border-color:rgba(0,133,255,.5);color:#3d9bff;background:rgba(0,133,255,.08)}
-
 
 /* STATUS */
 .sst{position:relative;flex-shrink:0}
@@ -260,6 +259,16 @@ function makeAv(name,size){
   return av;
 }
 
+// Mede o texto do label e ajusta a largura do input para caber justo
+const _cvs=document.createElement('canvas');
+const _ctx=_cvs.getContext('2d');
+_ctx.font='500 10px Inter,-apple-system,sans-serif';
+function setPrazoWidth(el,label){
+  const w=Math.ceil(_ctx.measureText(label).width)+14; // 14px = padding 4+4 + 6 folga
+  el.style.setProperty('--prazo-w',w+'px');
+  el.style.width=w+'px';
+}
+
 function toast(msg,err){
   const t=document.getElementById('toast');
   t.textContent=msg;t.className=err?'show err':'show';
@@ -267,30 +276,32 @@ function toast(msg,err){
 }
 
 // ─── API ──────────────────────────────────────────────────────────────
+
+// FIX 1: fetchSchema leve — 2 queries pequenas em vez de paginação pesada
 async function fetchSchema(bId){
-  let schema=[];
-  let cursor=null;
-  do{
-    const cp=cursor?`,cursor:"${cursor}"` :'';
-    // PATCH: limit reduzido de 20 → 5 para poupar complexidade GraphQL
-    const r=await api(`query{boards(ids:[${bId}]){items_page(limit:5${cp}){cursor items{subitems{board{id columns{id title type}}}}}}}`);
-    const page=r.data.boards[0].items_page;
-    for(const it of page.items){
-      if(it.subitems?.length&&it.subitems[0].board?.columns?.length){
-        schema=it.subitems[0].board.columns;break;
-      }
-    }
-    if(schema.length)break;
-    cursor=page.cursor||null;
-    // PATCH: sleep aumentado de 300 → 2000ms para não esgotar budget
-    if(cursor)await sleep(2000);
-  }while(cursor);
-  return schema;
+  // Pega 1 item para descobrir o ID do subboard
+  const r1=await api(`query{boards(ids:[${bId}]){items_page(limit:1){items{subitems{board{id}}}}}}`);
+  const items=r1.data.boards[0].items_page.items;
+  const subBoardId=items?.[0]?.subitems?.[0]?.board?.id;
+  if(!subBoardId){
+    console.warn('fetchSchema: nenhum subitem no 1o item — board pode estar vazio');
+    return[];
+  }
+  await sleep(500);
+  // Busca colunas direto do subboard — complexidade mínima
+  const r2=await api(`query{boards(ids:[${subBoardId}]){columns{id title type}}}`);
+  return r2.data.boards[0].columns||[];
 }
 
+// FIX 2: fetchUsers com limit e photo_thumb_small (menor payload)
 async function fetchUsers(){
-  const r=await api('query{users(limit:100){id name photo_thumb}}');
-  (r.data.users||[]).forEach(u=>{if(u.name){userNameById[String(u.id)]=u.name;if(u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;}});
+  const r=await api('query{users(limit:50){id name photo_thumb_small}}');
+  (r.data.users||[]).forEach(u=>{
+    if(u.name){
+      userNameById[String(u.id)]=u.name;
+      if(u.photo_thumb_small)userPhotoById[u.name]=u.photo_thumb_small;
+    }
+  });
 }
 
 async function fetchItems(bId){
@@ -307,14 +318,14 @@ async function fetchItems(bId){
   let fetched=[],cursor=null;
   do{
     const cp=cursor?`,cursor:"${cursor}"` :'';
-    // PATCH: limit reduzido de 100 → 20 para poupar complexidade GraphQL
+    // FIX 3: limit 100→20 por página para reduzir complexidade por chamada
     const q=`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;
     let res;try{res=await api(q);}catch(e){break;}
     const page=res.data.boards[0].items_page;
     fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));
     cursor=page.cursor||null;
-    // PATCH: sleep aumentado de 200 → 1500ms para não esgotar budget
-    if(cursor)await sleep(1500);
+    // FIX 3: sleep 200→800ms entre páginas para deixar o budget recuperar
+    if(cursor)await sleep(800);
   }while(cursor);
   return fetched;
 }
@@ -389,7 +400,7 @@ async function mutSubStatus(sub,newLabel){
   }catch(e){toast('Erro ao atualizar status: '+e.message,true);console.error(e);}
 }
 
-// ─── DRAG (mousedown/mousemove/mouseup) ──────────────────────────────
+// ─── DRAG ─────────────────────────────────────────────────────────────
 function setupDrag(cardEl,item,person){
   const handle=cardEl.querySelector('.drag-handle');
   if(!handle)return;
@@ -571,6 +582,7 @@ function buildCard(item,person){
     di.type='date';di.value=dateVal;
     di.className='sprazo-input '+prazoClass(dateVal);
     di.dataset.label='📅 '+prazoLabel(dateVal);
+    setPrazoWidth(di,'📅 '+prazoLabel(dateVal));
     di.title='Editar prazo';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
@@ -578,6 +590,7 @@ function buildCard(item,person){
       if(!sub.cronColId){toast('cronColId null',true);return;}
       di.dataset.label='📅 '+prazoLabel(val);
       di.className='sprazo-input '+prazoClass(val);
+      setPrazoWidth(di,'📅 '+prazoLabel(val));
       await mutPrazo(sub,val);
     });
     row.appendChild(di);
@@ -676,17 +689,20 @@ function openAccess(){
   document.getElementById('access-panel').classList.add('open');
 }
 
-// ─── LOAD ─────────────────────────────────────────────────────────────
+// ─── LOAD — FIX 4: sequencial em vez de Promise.all ──────────────────
 async function load(bId){
   document.getElementById('loading').style.display='flex';
   document.getElementById('board').style.display='none';
   document.querySelectorAll('.stdd').forEach(el=>el.remove());
   try{
-    // PATCH: sequencial em vez de Promise.all para não disparar queries em paralelo
-    await loadSubAdmins();
+    // FIX 4: sequencial para não esgotar o complexity budget com 3 queries simultâneas
     await fetchUsers();
-    const schema=await fetchSchema(bId);
+    await sleep(400);
+    await loadSubAdmins();
     await loadFilter();
+    await sleep(400);
+    const schema=await fetchSchema(bId);
+    await sleep(600);
     const raw=await fetchItems(bId);
     allItems=processItems(raw,schema);
     if(isAdmin){
