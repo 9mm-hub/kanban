@@ -358,7 +358,8 @@ function processItems(raw,schema){
         if(lv){const lj=JSON.parse(lv);linkFinal=lj?.url||lj?.text||'';}
       }catch(_){linkFinal=cols['Link Final']||'';}
       return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,linkFinal,
-        cronColId:cids['Cronograma']||null,statusColId:cids['Status']||null,_range:parseRange(cron)};
+        cronColId:cids['Cronograma']||null,statusColId:cids['Status']||null,
+        _linkColId:cids['Link Final']||null,_range:parseRange(cron)};
     }).filter(s=>s.resp);
     subs.forEach(s=>pset.add(s.resp));
     if(!subs.length)return null;
@@ -581,13 +582,57 @@ function buildCard(item,person){
     btnU.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id),kind:'updates'});});
     tjrow.appendChild(tj);tjrow.appendChild(btnU);card.appendChild(tjrow);
 
-    // Link Final — mesmo estilo do briefing, só aparece se tiver valor
-    const hasLink=!!(sub.linkFinal);
-    const linkEl=document.createElement(hasLink?'a':'div');
-    linkEl.className='card-brief'+(hasLink?'':' empty');
-    if(hasLink){linkEl.href=sub.linkFinal;linkEl.target='_blank';linkEl.rel='noopener noreferrer';}
-    linkEl.textContent=hasLink?sub.linkFinal:'Sem link final';linkEl.title=sub.linkFinal||'';
-    card.appendChild(linkEl);
+    // Link Final — clicável se tiver URL, editável inline se vazio
+    const linkWrap=document.createElement('div');linkWrap.style.cssText='position:relative;min-width:0;';
+    function renderLinkEl(){
+      linkWrap.innerHTML='';
+      if(sub.linkFinal){
+        // tem URL → link clicável igual ao briefing
+        const a=document.createElement('a');
+        a.className='card-brief';
+        a.href=sub.linkFinal;a.target='_blank';a.rel='noopener noreferrer';
+        a.textContent=sub.linkFinal;a.title=sub.linkFinal;
+        a.addEventListener('click',e=>e.stopPropagation());
+        linkWrap.appendChild(a);
+      } else {
+        // vazio → label clicável que vira input
+        const ph=document.createElement('div');
+        ph.className='card-brief empty';ph.textContent='Link final';ph.style.cursor='text';
+        ph.addEventListener('mousedown',e=>e.stopPropagation());
+        ph.addEventListener('click',e=>{e.stopPropagation();showLinkInput();});
+        linkWrap.appendChild(ph);
+      }
+    }
+    async function saveLinkFinal(url){
+      url=(url||'').trim();
+      if(url===sub.linkFinal)return;
+      if(!sub.boardId){toast('boardId null',true);return;}
+      // encontra o colId do Link Final
+      if(!sub._linkColId){toast('linkColId não encontrado',true);console.error('linkColId null',sub);return;}
+      try{
+        const val=JSON.stringify({url:url,text:url});
+        await monday.api(`mutation{change_column_value(board_id:${sub.boardId},item_id:${sub.subId},column_id:"${sub._linkColId}",value:${JSON.stringify(val)}){id}}`);
+        sub.linkFinal=url;
+        toast('Link final salvo!');
+      }catch(e){toast('Erro ao salvar link: '+e.message,true);console.error(e);}
+      renderLinkEl();
+    }
+    function showLinkInput(){
+      linkWrap.innerHTML='';
+      const inp=document.createElement('input');
+      inp.type='url';
+      inp.value=sub.linkFinal||'';
+      inp.placeholder='Cole o link aqui...';
+      inp.style.cssText='width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:var(--rsm);padding:3px 6px;font-size:10px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box;';
+      inp.addEventListener('mousedown',e=>e.stopPropagation());
+      inp.addEventListener('click',e=>e.stopPropagation());
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}if(e.key==='Escape'){renderLinkEl();}});
+      inp.addEventListener('blur',()=>saveLinkFinal(inp.value));
+      linkWrap.appendChild(inp);
+      setTimeout(()=>inp.focus(),0);
+    }
+    renderLinkEl();
+    card.appendChild(linkWrap);
 
     const row=document.createElement('div');row.className='srow';
 
