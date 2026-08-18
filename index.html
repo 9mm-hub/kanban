@@ -319,7 +319,7 @@ async function fetchItems(bId){
   do{
     const cp=cursor?`,cursor:"${cursor}"` :'';
     // FIX 3: limit 100→20 por página para reduzir complexidade por chamada
-    const q=`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text}}}}}}`;
+    const q=`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text value}}}}}}`;
     let res;try{res=await api(q);}catch(e){break;}
     const page=res.data.boards[0].items_page;
     fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));
@@ -344,13 +344,20 @@ function processItems(raw,schema){
 
     const subs=(item.subitems||[]).map(sub=>{
       const cols={},cids={};
-      sub.column_values.forEach(c=>{const t=ctm[c.id]||c.id;cols[t]=c.text;cids[t]=c.id;});
+      const colsVal={};
+      sub.column_values.forEach(c=>{const t=ctm[c.id]||c.id;cols[t]=c.text;cids[t]=c.id;colsVal[t]=c.value;});
       const resp=(cols['Resp.']||cols['Responsavel']||cols['Resp']||'').trim();
       const cron=cols['Cronograma']||'';
       const status=cols['Status']||'';
       const briefing=cols['Briefing']||cols['briefing']||'';
       const tipoJob=cols['Tipo de Job']||cols['Tipo']||'';
-      return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,
+      // Coluna tipo Link: .text pode vir vazio — extrai URL do .value (JSON)
+      let linkFinal='';
+      try{
+        const lv=colsVal['Link Final'];
+        if(lv){const lj=JSON.parse(lv);linkFinal=lj?.url||lj?.text||'';}
+      }catch(_){linkFinal=cols['Link Final']||'';}
+      return{subId:sub.id,boardId:sub.board?.id,name:sub.name,resp,cron,status,briefing,tipoJob,linkFinal,
         cronColId:cids['Cronograma']||null,statusColId:cids['Status']||null,_range:parseRange(cron)};
     }).filter(s=>s.resp);
     subs.forEach(s=>pset.add(s.resp));
@@ -573,6 +580,14 @@ function buildCard(item,person){
     btnU.innerHTML='<svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M10 2C5.58 2 2 5.36 2 9.5c0 1.9.72 3.63 1.9 4.97L2.5 17.5l3.3-1.1A8.1 8.1 0 0010 17c4.42 0 8-3.36 8-7.5S14.42 2 10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
     btnU.addEventListener('click',e=>{e.stopPropagation();monday.execute('openItemCard',{itemId:parseInt(item.id),kind:'updates'});});
     tjrow.appendChild(tj);tjrow.appendChild(btnU);card.appendChild(tjrow);
+
+    // Link Final — mesmo estilo do briefing, só aparece se tiver valor
+    const hasLink=!!(sub.linkFinal);
+    const linkEl=document.createElement(hasLink?'a':'div');
+    linkEl.className='card-brief'+(hasLink?'':' empty');
+    if(hasLink){linkEl.href=sub.linkFinal;linkEl.target='_blank';linkEl.rel='noopener noreferrer';}
+    linkEl.textContent=hasLink?sub.linkFinal:'Sem link final';linkEl.title=sub.linkFinal||'';
+    card.appendChild(linkEl);
 
     const row=document.createElement('div');row.className='srow';
 
