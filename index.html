@@ -295,11 +295,12 @@ async function fetchSchema(bId){
 
 // FIX 2: fetchUsers com limit e photo_thumb_small (menor payload)
 async function fetchUsers(){
-  const r=await api('query{users(limit:50){id name photo_thumb_small}}');
+  const r=await api('query{users(limit:50){id name photo_thumb}}');
   (r.data.users||[]).forEach(u=>{
     if(u.name){
       userNameById[String(u.id)]=u.name;
-      if(u.photo_thumb_small)userPhotoById[u.name]=u.photo_thumb_small;
+      if(u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;
+      console.log('user photo:', u.name, u.photo_thumb?'✓':'✗');
     }
   });
 }
@@ -809,7 +810,7 @@ document.getElementById('btn-save-access').addEventListener('click',async()=>{
   render();
 });
 document.getElementById('btn-close-access').addEventListener('click',()=>document.getElementById('access-panel').classList.remove('open'));
-setInterval(()=>{if(boardId)load(boardId);},5*60*1000);
+setInterval(()=>{if(boardId)load(boardId);},60*60*1000);
 
 // scroll bidirecional no board
 const boardEl=document.getElementById('board');
