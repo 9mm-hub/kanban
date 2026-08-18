@@ -522,8 +522,8 @@ function sortItems(items,person){
   return[...items].sort((a,b)=>{
     const sa=a.subs.find(s=>s.resp===person);
     const sb=b.subs.find(s=>s.resp===person);
-    const da=sa?._range?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
-    const db=sb?._range?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
+    const da=sa?._range?.to?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
+    const db=sb?._range?.to?.getTime()??(sortOrder==='asc'?Infinity:-Infinity);
     return sortOrder==='asc'?da-db:db-da;
   });
 }
