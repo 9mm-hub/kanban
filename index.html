@@ -243,15 +243,34 @@ function stCls(s){
 
 function parseRange(str){
   if(!str)return null;
-  // Timeline: value é JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"} — pega a data de FIM
-  try{const j=JSON.parse(str);if(j?.to)return new Date(j.to+'T12:00:00');}catch(_){}
+  // Timeline: value é JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}
+  try{
+    const j=JSON.parse(str);
+    if(j?.from||j?.to){
+      return{
+        from:j.from?new Date(j.from+'T12:00:00'):null,
+        to:j.to?new Date(j.to+'T12:00:00'):null
+      };
+    }
+  }catch(_){}
   // Fallback: texto simples com data
   const m=str.match(/(\d{4}-\d{2}-\d{2})/);
-  return m?new Date(m[1]+'T12:00:00'):null;
+  if(m){const d=new Date(m[1]+'T12:00:00');return{from:d,to:d};}
+  return null;
 }
-function fmtDate(d){return d?d.toISOString().split('T')[0]:'';}
-function prazoLabel(ds){if(!ds)return'—';const d=new Date(ds+'T12:00:00');const day=d.getDate().toString().padStart(2,'0'),mon=MON[d.getMonth()];return`${day} ${mon}`;}
-function prazoClass(ds){if(!ds)return'';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(0,0,0,0);return d<today?'od':'';}
+function fmtDate(d){if(!d)return'';const dt=d?.to||d;return dt instanceof Date?dt.toISOString().split('T')[0]:'';}
+function prazoLabel(range){
+  if(!range)return'—';
+  const to=range?.to||range;
+  if(!(to instanceof Date))return'—';
+  const from=range?.from;
+  const toDay=to.getDate().toString().padStart(2,'0'),toMon=MON[to.getMonth()];
+  if(!from)return`${toDay} ${toMon}`;
+  const fromDay=from.getDate().toString().padStart(2,'0'),fromMon=MON[from.getMonth()];
+  if(from.getMonth()===to.getMonth())return`${fromDay} - ${toDay} ${toMon}`;
+  return`${fromDay} ${fromMon} - ${toDay} ${toMon}`;
+}
+function prazoClass(range){if(!range)return'';const to=range?.to||range;if(!(to instanceof Date))return'';const today=new Date();today.setHours(0,0,0,0);return to<today?'od':"";}
 
 const avColors=['#5c7cfa','#f06595','#ffa94d','#51cf66','#cc5de8','#22b8cf','#ff6b6b','#74c0fc'];
 const avMap={};let avI=0;
@@ -390,7 +409,7 @@ async function mutPrazo(sub,newDate){
     const r=await monday.api(q);
     console.log('mutPrazo result:',r);
     if(r?.errors){throw new Error(r.errors[0]?.message||'GraphQL error');}
-    sub.cron=newDate;sub._range=parseRange(newDate);
+    sub.cron=newDate;sub._range={from:new Date(newDate+'T12:00:00'),to:new Date(newDate+'T12:00:00')};
     toast('Prazo atualizado!');render();
   }catch(e){
     toast('Erro prazo: '+e.message,true);
@@ -644,20 +663,21 @@ function buildCard(item,person){
     const row=document.createElement('div');row.className='srow';
 
     const dateVal=sub._range?fmtDate(sub._range):(sub.cron?.match(/\d{4}-\d{2}-\d{2}/)?.[0]||'');
+    const prazoRange=sub._range||null;
 
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
-    di.className='sprazo-input '+prazoClass(dateVal);
-    di.dataset.label=prazoLabel(dateVal);
-    setPrazoWidth(di,prazoLabel(dateVal));
+    di.className='sprazo-input '+prazoClass(prazoRange);
+    di.dataset.label=prazoLabel(prazoRange);
+    setPrazoWidth(di,prazoLabel(prazoRange));
     di.title='Editar prazo';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      di.dataset.label=prazoLabel(val);
-      di.className='sprazo-input '+prazoClass(val);
-      setPrazoWidth(di,prazoLabel(val));
+      di.dataset.label=prazoLabel({to:new Date(val+'T12:00:00'),from:new Date(val+'T12:00:00')});
+      di.className='sprazo-input '+prazoClass({to:new Date(val+'T12:00:00')});
+      setPrazoWidth(di,prazoLabel({to:new Date(val+'T12:00:00'),from:new Date(val+'T12:00:00')}));
       await mutPrazo(sub,val);
     });
     row.appendChild(di);
