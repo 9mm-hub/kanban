@@ -294,7 +294,7 @@ async function fetchSchema(bId){
     console.warn('fetchSchema: nenhum subitem no 1o item — board pode estar vazio');
     return[];
   }
-  await sleep(500);
+  await sleep(200);
   // Busca colunas direto do subboard — complexidade mínima
   const r2=await api(`query{boards(ids:[${subBoardId}]){columns{id title type}}}`);
   return r2.data.boards[0].columns||[];
@@ -326,13 +326,13 @@ async function fetchItems(bId){
   do{
     const cp=cursor?`,cursor:"${cursor}"` :'';
     // FIX 3: limit 100→20 por página para reduzir complexidade por chamada
-    const q=`query{boards(ids:[${bId}]){items_page(limit:20${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text value}}}}}}`;
+    const q=`query{boards(ids:[${bId}]){items_page(limit:50${cp}){cursor items{id name group{id title} column_values{id text} subitems{id name board{id} column_values{id text value}}}}}}`;
     let res;try{res=await api(q);}catch(e){break;}
     const page=res.data.boards[0].items_page;
     fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));
     cursor=page.cursor||null;
     // FIX 3: sleep 200→800ms entre páginas para deixar o budget recuperar
-    if(cursor)await sleep(400);
+    if(cursor)await sleep(150);
   }while(cursor);
   return fetched;
 }
@@ -764,12 +764,12 @@ async function load(bId){
   try{
     // FIX 4: sequencial para não esgotar o complexity budget com 3 queries simultâneas
     await fetchUsers(bId);
-    await sleep(200);
+    await sleep(100);
     await loadSubAdmins();
     await loadFilter();
-    await sleep(200);
+    await sleep(100);
     const schema=await fetchSchema(bId);
-    await sleep(300);
+    await sleep(200);
     const raw=await fetchItems(bId);
     allItems=processItems(raw,schema);
     if(isAdmin){
