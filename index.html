@@ -104,7 +104,7 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 .sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 5px 1px 5px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;min-width:10px;}
 .sprazo-input::-webkit-datetime-edit{color:transparent;}
 .sprazo-input::-webkit-datetime-edit-fields-wrapper{color:transparent;}
-.sprazo-input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;padding:0;}
+.sprazo-input::-webkit-calendar-picker-indicator{display:none !important;}
 .sprazo-input::before{content:attr(data-label);color:var(--text-dim);font-size:10px;font-weight:500;pointer-events:none;white-space:nowrap;position:absolute;left:4px;top:50%;transform:translateY(-50%);}
 .sprazo-input.od{border-color:rgba(239,83,80,.5);background:rgba(239,83,80,.08)}.sprazo-input.od::before{color:#ef5350;}
 .sprazo-input.td{border-color:rgba(255,185,0,.5);background:rgba(255,185,0,.08)}.sprazo-input.td::before{color:#ffb900;}
@@ -241,10 +241,17 @@ function stCls(s){
   return 'ep';
 }
 
-function parseRange(str){if(!str)return null;const m=str.match(/(\d{4}-\d{2}-\d{2})/);return m?new Date(m[1]+'T12:00:00'):null;}
+function parseRange(str){
+  if(!str)return null;
+  // Timeline: value é JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"} — pega a data de FIM
+  try{const j=JSON.parse(str);if(j?.to)return new Date(j.to+'T12:00:00');}catch(_){}
+  // Fallback: texto simples com data
+  const m=str.match(/(\d{4}-\d{2}-\d{2})/);
+  return m?new Date(m[1]+'T12:00:00'):null;
+}
 function fmtDate(d){return d?d.toISOString().split('T')[0]:'';}
-function prazoLabel(ds){if(!ds)return'—';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(12,0,0,0);const diff=Math.round((d-today)/86400000);const day=d.getDate().toString().padStart(2,'0'),mon=MON[d.getMonth()];if(diff<0)return`${day} ${mon} ⚠`;if(diff===0)return'Hoje';if(diff===1)return'Amanhã';return`${day} ${mon}`;}
-function prazoClass(ds){if(!ds)return'';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(12,0,0,0);const diff=Math.round((d-today)/86400000);return diff<0?'od':diff===0?'td':diff<=2?'sn':'';}
+function prazoLabel(ds){if(!ds)return'—';const d=new Date(ds+'T12:00:00');const day=d.getDate().toString().padStart(2,'0'),mon=MON[d.getMonth()];return`${day} ${mon}`;}
+function prazoClass(ds){if(!ds)return'';const d=new Date(ds+'T12:00:00'),today=new Date();today.setHours(0,0,0,0);return d<today?'od':'';}
 
 const avColors=['#5c7cfa','#f06595','#ffa94d','#51cf66','#cc5de8','#22b8cf','#ff6b6b','#74c0fc'];
 const avMap={};let avI=0;
@@ -293,14 +300,13 @@ async function fetchSchema(bId){
   return r2.data.boards[0].columns||[];
 }
 
-// FIX 2: fetchUsers com limit e photo_thumb_small (menor payload)
-async function fetchUsers(){
-  const r=await api('query{users(limit:50){id name photo_thumb}}');
-  (r.data.users||[]).forEach(u=>{
+// FIX 2: busca só subscribers do board (evita users de outras contas)
+async function fetchUsers(bId){
+  const r=await api(`query{boards(ids:[${bId}]){subscribers{id name photo_thumb}}}`);
+  (r.data.boards[0].subscribers||[]).forEach(u=>{
     if(u.name){
       userNameById[String(u.id)]=u.name;
       if(u.photo_thumb)userPhotoById[u.name]=u.photo_thumb;
-      console.log('user photo:', u.name, u.photo_thumb?'✓':'✗');
     }
   });
 }
@@ -326,7 +332,7 @@ async function fetchItems(bId){
     fetched=fetched.concat(page.items.filter(it=>tgtIds.has(it.group.id)).map(it=>({...it,_gt:it.group.title.trim()})));
     cursor=page.cursor||null;
     // FIX 3: sleep 200→800ms entre páginas para deixar o budget recuperar
-    if(cursor)await sleep(800);
+    if(cursor)await sleep(400);
   }while(cursor);
   return fetched;
 }
@@ -348,7 +354,7 @@ function processItems(raw,schema){
       const colsVal={};
       sub.column_values.forEach(c=>{const t=ctm[c.id]||c.id;cols[t]=c.text;cids[t]=c.id;colsVal[t]=c.value;});
       const resp=(cols['Resp.']||cols['Responsavel']||cols['Resp']||'').trim();
-      const cron=cols['Cronograma']||'';
+      const cron=colsVal['Cronograma']||cols['Cronograma']||''; // usa value (JSON Timeline) se disponível
       const status=cols['Status']||'';
       const briefing=cols['Briefing']||cols['briefing']||'';
       const tipoJob=cols['Tipo de Job']||cols['Tipo']||'';
@@ -642,16 +648,16 @@ function buildCard(item,person){
     const di=document.createElement('input');
     di.type='date';di.value=dateVal;
     di.className='sprazo-input '+prazoClass(dateVal);
-    di.dataset.label='📅 '+prazoLabel(dateVal);
-    setPrazoWidth(di,'📅 '+prazoLabel(dateVal));
+    di.dataset.label=prazoLabel(dateVal);
+    setPrazoWidth(di,prazoLabel(dateVal));
     di.title='Editar prazo';
     di.addEventListener('mousedown',e=>e.stopPropagation());
     di.addEventListener('change',async e=>{
       const val=e.target.value;if(!val)return;
       if(!sub.cronColId){toast('cronColId null',true);return;}
-      di.dataset.label='📅 '+prazoLabel(val);
+      di.dataset.label=prazoLabel(val);
       di.className='sprazo-input '+prazoClass(val);
-      setPrazoWidth(di,'📅 '+prazoLabel(val));
+      setPrazoWidth(di,prazoLabel(val));
       await mutPrazo(sub,val);
     });
     row.appendChild(di);
@@ -757,13 +763,13 @@ async function load(bId){
   document.querySelectorAll('.stdd').forEach(el=>el.remove());
   try{
     // FIX 4: sequencial para não esgotar o complexity budget com 3 queries simultâneas
-    await fetchUsers();
-    await sleep(400);
+    await fetchUsers(bId);
+    await sleep(200);
     await loadSubAdmins();
     await loadFilter();
-    await sleep(400);
+    await sleep(200);
     const schema=await fetchSchema(bId);
-    await sleep(600);
+    await sleep(300);
     const raw=await fetchItems(bId);
     allItems=processItems(raw,schema);
     if(isAdmin){
