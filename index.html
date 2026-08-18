@@ -101,7 +101,7 @@ a.card-brief:hover{color:var(--accent);border-left-color:var(--accent)}
 
 /* PRAZO */
 .sprazo{position:relative;display:flex;align-items:center;gap:2px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;color:var(--text-dim);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;user-select:none;box-sizing:border-box}
-.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 4px 1px 4px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;width:var(--prazo-w,72px);}
+.sprazo-input{position:relative;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 5px 1px 5px;font-size:10px;font-weight:500;color:transparent;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:inherit;outline:none;color-scheme:dark;min-width:10px;}
 .sprazo-input::-webkit-datetime-edit{color:transparent;}
 .sprazo-input::-webkit-datetime-edit-fields-wrapper{color:transparent;}
 .sprazo-input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;padding:0;}
@@ -259,13 +259,13 @@ function makeAv(name,size){
   return av;
 }
 
-// Mede o texto do label e ajusta a largura do input para caber justo
-const _cvs=document.createElement('canvas');
-const _ctx=_cvs.getContext('2d');
-_ctx.font='500 10px Inter,-apple-system,sans-serif';
+// Ajusta a largura do input de data ao conteúdo do label via span fantasma
+const _sizer=document.createElement('span');
+_sizer.style.cssText='position:fixed;visibility:hidden;pointer-events:none;font:500 10px Inter,-apple-system,sans-serif;white-space:nowrap;top:-999px;left:-999px;';
+document.body.appendChild(_sizer);
 function setPrazoWidth(el,label){
-  const w=Math.ceil(_ctx.measureText(label).width)+14; // 14px = padding 4+4 + 6 folga
-  el.style.setProperty('--prazo-w',w+'px');
+  _sizer.textContent=label;
+  const w=Math.ceil(_sizer.getBoundingClientRect().width)+12;
   el.style.width=w+'px';
 }
 
@@ -772,8 +772,22 @@ monday.listen('context',async res=>{
   document.getElementById('hdr-board').textContent=res.data.boardName||'Kanban';
   currentUserName=(res.data.user?.name||'').trim();
   isMainAdmin=res.data.user?.isAdmin===true;
+  let uid=String(res.data.user?.id||'');
+
+  // Overview nao entrega user.name nem user.id pelo contexto — busca via GraphQL
+  if(!currentUserName||!uid){
+    try{
+      const meRes=await monday.api('query{me{id name is_admin}}');
+      const me=meRes.data?.me;
+      if(me){
+        if(!currentUserName)currentUserName=(me.name||'').trim();
+        if(!uid)uid=String(me.id||'');
+        if(!isMainAdmin)isMainAdmin=me.is_admin===true;
+      }
+    }catch(e){console.warn('me query falhou:',e);}
+  }
+
   await loadSubAdmins();
-  const uid=String(res.data.user?.id||'');
   isAdmin=isMainAdmin||subAdmins.includes(uid);
   await load(bId);
 });
